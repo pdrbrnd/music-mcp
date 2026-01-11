@@ -1,7 +1,7 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { logger } from '../logger.js';
 import { getConfig } from '../config.js';
-import { createMusicKitClient } from '../services/musickit-client.js';
+import { createMusicKitClient, CatalogTrack } from '../services/musickit-client.js';
 
 export interface CatalogSearchInput {
   query: string;

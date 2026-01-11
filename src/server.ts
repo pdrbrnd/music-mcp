@@ -36,6 +36,16 @@ import {
   CatalogSearchInput,
   AddCatalogTrackInput,
 } from "./tools/catalog-search.js";
+import {
+  authorizeTool,
+  handleAuthorize,
+  AuthorizeInput,
+} from "./tools/authorize.js";
+import {
+  createCatalogPlaylistTool,
+  handleCreateCatalogPlaylist,
+  CreateCatalogPlaylistInput,
+} from "./tools/create-catalog-playlist.js";
 
 export async function registerTools(server: Server): Promise<void> {
   // Register tool definitions
@@ -50,6 +60,8 @@ export async function registerTools(server: Server): Promise<void> {
         queueMusicTool,
         catalogSearchTool,
         addCatalogTrackTool,
+        authorizeTool,
+        createCatalogPlaylistTool,
       ],
     };
   });
@@ -163,6 +175,32 @@ export async function registerTools(server: Server): Promise<void> {
               {
                 type: "text",
                 text: JSON.stringify(addResult, null, 2),
+              },
+            ],
+          };
+        }
+
+        case "authorize_apple_music": {
+          const authorizeResult = await handleAuthorize(args as AuthorizeInput);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(authorizeResult, null, 2),
+              },
+            ],
+          };
+        }
+
+        case "create_catalog_playlist": {
+          const createResult = await handleCreateCatalogPlaylist(
+            args as CreateCatalogPlaylistInput,
+          );
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(createResult, null, 2),
               },
             ],
           };

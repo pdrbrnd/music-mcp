@@ -15,6 +15,8 @@ build/
 # Apple Music API credentials
 *.p8
 AuthKey_*.p8
+.music-mcp/
+tokens.json
 
 # Environment variables
 .env

@@ -167,7 +167,26 @@ Enable music discovery by searching the full Apple Music catalog (100M+ songs).
    }
    ```
 
-7. **Restart Claude Desktop**
+7. **Authorize Your Apple Music Account**
+
+   After configuring the developer token, you need to authorize access to your Apple Music library:
+   
+   - Restart Claude Desktop
+   - Ask Claude: **"Authorize Apple Music"**
+   - A browser window will open with Apple Music authorization
+   - Click **"Authorize Apple Music"** button
+   - Sign in with your Apple ID if prompted
+   - Grant permissions
+   - You'll see a success message
+   
+   This is a **one-time setup**. The authorization is stored securely and won't expire for 180 days.
+   
+   **What this enables:**
+   - Create playlists with tracks from the full Apple Music catalog
+   - Add any song (even ones not in your library) to playlists
+   - Full music discovery without manual clicking
+
+8. **You're Done!**
 
 #### Verify Setup
 
@@ -176,12 +195,19 @@ Ask Claude:
 "Check the Music MCP info"
 ```
 
-You should see `catalogSearchConfigured: true` and `catalogSearchAvailable: true`.
+You should see:
+- `catalogSearchConfigured: true`
+- `catalogSearchAvailable: true`
+- `userTokenConfigured: true` (after authorization)
 
-Try it:
+Try creating a playlist with catalog tracks:
+
 ```
-"Search the Apple Music catalog for songs by Radiohead"
+"Create a playlist called 'Discover' and add these tracks from the catalog: 
+Anti-Hero by Taylor Swift, Vampire by Olivia Rodrigo, Cruel Summer by Taylor Swift"
 ```
+
+Claude will search the catalog, add tracks to your library automatically, and create the playlist.
 
 #### Storefront Codes
 
@@ -251,7 +277,7 @@ Get diagnostic information about the MCP server status.
 }
 ```
 
-Returns version information, Music app availability, catalog search status, and configuration details.
+Returns version information, Music app availability, catalog search status, authorization status, and configuration details.
 
 ### `execute_music_command`
 Execute music playback control commands.
@@ -348,6 +374,50 @@ Add a track from the Apple Music catalog to your library. Requires both develope
 
 Once added to your library, the track can be added to playlists using the standard `manage_playlist` tool.
 
+### `authorize_apple_music` 🆕
+
+Authorize Music MCP to access your Apple Music library for creating playlists with catalog tracks.
+
+```json
+{
+  "action": "authorize|check|clear"
+}
+```
+
+**Actions:**
+- `authorize` - Start OAuth flow to authenticate with Apple Music (opens browser)
+- `check` - Verify current authorization status
+- `clear` - Remove stored authorization tokens
+
+**One-time setup:** After authorization, tokens are stored securely and automatically refreshed. You won't need to authorize again unless you clear tokens or they expire (180 days).
+
+### `create_catalog_playlist` 🆕⚡
+
+**Efficient batch operation** - Create a playlist with multiple tracks from the Apple Music catalog in one go. Searches, adds to library, and creates playlist in parallel for maximum speed.
+
+```json
+{
+  "playlistName": "My Discover Playlist",
+  "tracks": [
+    { "track": "Anti-Hero", "artist": "Taylor Swift" },
+    { "track": "Vampire", "artist": "Olivia Rodrigo" },
+    { "track": "Cruel Summer", "artist": "Taylor Swift" }
+  ],
+  "description": "My AI-generated playlist"
+}
+```
+
+**Why use this instead of add_track repeatedly:**
+- ⚡ **Much faster** - Batch API calls instead of sequential
+- 🎯 **More efficient** - 3 API calls instead of 30+
+- 🔄 **Parallel search** - All tracks searched simultaneously
+- ✅ **Better UX** - One operation instead of many
+- 🎯 **Structured input** - Explicit track and artist names for accurate matching
+
+**Example:** Creating a 30-track playlist takes ~2 seconds instead of ~60 seconds.
+
+**Important:** Use structured `{ track, artist }` format for best results. This eliminates ambiguity and dramatically improves match rate (e.g., "Archangel" by "Burial" instead of parsing "Archangel Burial").
+
 ## Building as MCP Bundle
 
 Create an MCP Bundle (.mcpb) for distribution:
@@ -380,19 +450,43 @@ This creates a `music-mcp.mcpb` file for Claude Desktop.
 **"Track added but not in playlist"**
 - Wait 5-10 seconds for library sync, then retry
 
+**Catalog search finds few tracks**
+- Enable debug logging (see below) to see what Apple's API is returning
+- Check if searches are returning 0 results or low scores
+- Common issues: special characters, exact spelling, less popular tracks
+- Apple's search API is text-based and can be inconsistent
+
 **Check Status**
 ```
 Ask Claude: "Check the Music MCP info"
 ```
 
 **Enable Debug Logging**
+
+To see detailed search logs and API responses, update your Claude Desktop config:
+
 ```json
 {
-  "env": {
-    "MUSIC_MCP_LOG_LEVEL": "debug"
+  "mcpServers": {
+    "music": {
+      "command": "npx",
+      "args": ["@pdrbrnd/music-mcp@latest"],
+      "env": {
+        "APPLE_MUSIC_DEVELOPER_TOKEN": "your-token",
+        "MUSIC_MCP_LOG_LEVEL": "debug"
+      }
+    }
   }
 }
 ```
+
+Restart Claude Desktop and check the logs at: `~/Library/Logs/Claude/mcp-server-music.log`
+
+Debug logs will show:
+- Each search query attempted
+- Number of results returned from Apple's API
+- Scoring for each result
+- Why tracks were rejected (low score, no results, etc.)
 
 ## Example Usage
 
@@ -418,11 +512,12 @@ Here are some example interactions you can have with Claude using this MCP serve
 - "Clear my queue and add these 3 songs to play after the current track"
 - "Play my 'Party Mix' playlist next"
 
-**Music Discovery (NEW - Requires MusicKit):**
+**Music Discovery (NEW - Requires MusicKit + Authorization):**
+- "Authorize Apple Music" (one-time setup)
 - "Search the Apple Music catalog for songs by Radiohead"
-- "Create a playlist called 'Discover Weekly' and add 'Motion Picture Soundtrack' by Radiohead from the catalog"
-- "Find the newest album by The 1975 in the Apple Music catalog and add all tracks to my library"
-- "Search for 'lo-fi hip hop' in the Apple Music catalog and add the top 3 results to my 'Study' playlist"
+- "Create a playlist called 'Discover Weekly' and add Motion Picture Soundtrack by Radiohead, Paranoid Android, and Karma Police"
+- "Make me a 90s alternative rock playlist with 20 songs I probably don't have"
+- "Create a workout playlist with high energy tracks from the catalog"
 
 ## Development
 
