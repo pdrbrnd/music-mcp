@@ -108,7 +108,7 @@ Enable music discovery by searching the full Apple Music catalog (100M+ songs).
    - Go to [Apple Developer Portal](https://developer.apple.com/account)
    - Navigate to **Certificates, Identifiers & Profiles** → **Identifiers**
    - Click **+** to create new identifier
-   - Select **Music IDs**
+   - Select **Media IDs**
    - Enter description and identifier (e.g., `com.yourname.music-mcp`)
    - Click **Register**
 
@@ -128,38 +128,25 @@ Enable music discovery by searching the full Apple Music catalog (100M+ songs).
 
 5. **Generate JWT Token**
    
-   Create a script to generate your developer token:
+   Use the built-in token generator:
    
-   ```javascript
-   // generate-token.js
-   const jwt = require('jsonwebtoken');
-   const fs = require('fs');
-   
-   const privateKey = fs.readFileSync('./AuthKey_ABCD1234.p8', 'utf8');
-   
-   const token = jwt.sign({}, privateKey, {
-     algorithm: 'ES256',
-     expiresIn: '180d', // 6 months (max allowed)
-     issuer: 'YOUR_TEAM_ID',
-     header: {
-       alg: 'ES256',
-       kid: 'YOUR_KEY_ID'
-     }
-   });
-   
-   console.log(token);
-   ```
-   
-   Run it:
    ```bash
-   npm install jsonwebtoken
-   node generate-token.js
+   # If installed globally or via npx
+   npx @pdrbrnd/music-mcp generate-token
+   
+   # Or if cloned locally
+   pnpm run generate-token
    ```
    
-   Replace:
-   - `AuthKey_ABCD1234.p8` with your key filename
-   - `YOUR_TEAM_ID` with your Team ID
-   - `YOUR_KEY_ID` with your Key ID
+   The tool will interactively prompt you for:
+   - Path to your `.p8` private key file
+   - Your Team ID
+   - Your Key ID
+   - Token expiration (default: 180 days, max allowed by Apple)
+   
+   It will generate and display your JWT token with setup instructions.
+   
+   **Security Note**: The `.p8` file is automatically ignored by git for safety.
 
 6. **Configure Claude Desktop**
    
@@ -222,6 +209,36 @@ Common region codes: `us`, `gb`, `ca`, `au`, `jp`, `de`, `fr`, `it`, `es`
 | `MUSIC_MCP_TIMEOUT_SECONDS` | `30` | Operation timeout |
 | `MUSIC_MCP_ARTWORK_EXPORT` | `true` | Enable album artwork export |
 | `MUSIC_MCP_LENIENT_PARSING` | `true` | Accept parameter name variations |
+
+## CLI Utilities
+
+### JWT Token Generator
+
+Generate Apple Music API tokens easily with the built-in CLI tool:
+
+```bash
+# Via npx (if installed)
+npx @pdrbrnd/music-mcp generate-token
+
+# Or from local clone
+pnpm run generate-token
+
+# Or directly
+music-mcp-generate-token
+```
+
+The interactive tool will guide you through:
+1. Locating your `.p8` private key file
+2. Entering your Team ID and Key ID
+3. Setting token expiration (max 180 days)
+4. Displaying your JWT token with setup instructions
+
+**Features:**
+- ✅ Interactive prompts with validation
+- ✅ Automatic `.p8` file reading
+- ✅ Expiration date calculation
+- ✅ Security reminders and best practices
+- ✅ Ready-to-use configuration examples
 
 ## Available Tools
 

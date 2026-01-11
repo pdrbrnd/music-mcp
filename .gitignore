@@ -12,6 +12,10 @@ pnpm-debug.log*
 dist/
 build/
 
+# Apple Music API credentials
+*.p8
+AuthKey_*.p8
+
 # Environment variables
 .env
 .env.local
