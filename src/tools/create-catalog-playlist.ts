@@ -1,9 +1,33 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { logger } from "../logger.js";
 import { createMusicKitClient } from "../services/musickit-client.js";
+import { execSync } from "child_process";
+import { join } from "path";
+import { getConfig } from "../config.js";
 
 // Helper to add delay between API calls
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Helper to execute AppleScript
+async function executeAppleScript(
+  scriptPath: string,
+  args: string[],
+  timeout: number,
+): Promise<string> {
+  const command = `osascript "${scriptPath}" ${args.map((arg) => `"${arg.replace(/"/g, '\\"')}"`).join(" ")}`;
+  try {
+    const result = execSync(command, {
+      encoding: "utf-8",
+      timeout,
+    });
+    return result.trim();
+  } catch (error: any) {
+    if (error.stderr) {
+      throw new Error(error.stderr.toString().trim());
+    }
+    throw error;
+  }
+}
 
 export interface CreateCatalogPlaylistInput {
   playlistName: string;
@@ -174,12 +198,12 @@ export async function handleCreateCatalogPlaylist(
     logger.info("Waiting for library sync...");
     await sleep(2000);
 
-    // Step 3: Create playlist with all tracks in one API call
-    logger.info("Creating playlist with tracks");
+    // Step 3: Create empty playlist via API
+    logger.info("Creating empty playlist");
 
     const createResult = await musicKit.createPlaylistWithTracks(
       input.playlistName,
-      trackIds,
+      [],
       input.description,
     );
 
@@ -190,17 +214,80 @@ export async function handleCreateCatalogPlaylist(
         error: createResult.message,
         data: {
           playlistName: input.playlistName,
-          tracksAdded: trackIds.length,
+          tracksAdded: 0,
           tracksNotFound: notFoundTracks,
         },
       };
     }
 
+    // Step 4: Add tracks to playlist via AppleScript (using library search)
+    logger.info("Adding tracks to playlist via AppleScript");
+    const config = getConfig();
+    let addedCount = 0;
+    const failedTracks: Array<{ track: string; artist: string }> = [];
+
+    for (const foundTrack of foundTracks) {
+      const searchTerms = musicKit.getLibrarySearchTerms({
+        id: foundTrack.id,
+        type: "songs",
+        attributes: {
+          name: foundTrack.name,
+          artistName: foundTrack.artist,
+          albumName: "",
+          durationInMillis: 0,
+          releaseDate: "",
+          genreNames: [],
+          url: "",
+        },
+      });
+
+      let added = false;
+      for (const term of searchTerms) {
+        try {
+          const result = await executeAppleScript(
+            join(
+              __dirname,
+              "../scripts/playlist/add-to-playlist-enhanced.applescript",
+            ),
+            [input.playlistName, term],
+            config.timeoutSeconds * 1000,
+          );
+
+          if (!result.startsWith("Error")) {
+            addedCount++;
+            added = true;
+            logger.info(
+              { track: foundTrack.name, artist: foundTrack.artist },
+              "Track added to playlist",
+            );
+            break;
+          }
+        } catch (error) {
+          continue;
+        }
+      }
+
+      if (!added) {
+        failedTracks.push({
+          track: foundTrack.requestedTrack,
+          artist: foundTrack.requestedArtist,
+        });
+        logger.warn(
+          { track: foundTrack.name, artist: foundTrack.artist },
+          "Failed to add track to playlist",
+        );
+      }
+
+      // Small delay between adds
+      await sleep(100);
+    }
+
     // Success!
+    const totalNotFound = [...notFoundTracks, ...failedTracks];
     const successMessage =
-      notFoundTracks.length > 0
-        ? `Created playlist "${input.playlistName}" with ${foundTracks.length} track(s). ${notFoundTracks.length} track(s) could not be found.`
-        : `Successfully created playlist "${input.playlistName}" with ${foundTracks.length} track(s)`;
+      totalNotFound.length > 0
+        ? `Created playlist "${input.playlistName}" with ${addedCount} track(s). ${totalNotFound.length} track(s) could not be added.`
+        : `Successfully created playlist "${input.playlistName}" with ${addedCount} track(s)`;
 
     return {
       success: true,
@@ -208,8 +295,8 @@ export async function handleCreateCatalogPlaylist(
       data: {
         playlistId: createResult.playlistId,
         playlistName: input.playlistName,
-        tracksAdded: foundTracks.length,
-        tracksNotFound: notFoundTracks,
+        tracksAdded: addedCount,
+        tracksNotFound: totalNotFound,
       },
     };
   } catch (error) {
