@@ -3,6 +3,10 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+
+# pnpm
+.pnpm-store/
 
 # Build output
 dist/
@@ -52,5 +56,6 @@ ehthumbs.db
 *.sln
 *.sw?
 
-# Desktop Extension build artifacts
-*.dxt 
+# MCP build artifacts
+*.dxt
+*.mcpb

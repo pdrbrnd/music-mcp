@@ -1,22 +1,20 @@
 {
-  "dxt_version": "0.1",
-  "name": "@pedrocid/music-mcp",
+  "mcpb_version": "0.1",
+  "name": "@pdrbrnd/music-mcp",
   "display_name": "Music MCP for Apple Music",
-  "version": "1.1.0",
-  "description": "MCP server for controlling Apple Music on macOS - play tracks, control playback, manage playlists",
-  "long_description": "A comprehensive MCP server that provides full control over Apple Music on macOS. Features include playing specific tracks, controlling playback (play/pause/next/previous), searching your music library, managing playlists, and getting current track information.",
+  "version": "1.2.0",
+  "description": "MCP server for controlling Apple Music on macOS with full catalog search - play tracks, control playback, manage playlists, discover new music",
+  "long_description": "A comprehensive MCP server that provides full control over Apple Music on macOS. Features include playing specific tracks, controlling playback (play/pause/next/previous), searching your music library and the full Apple Music catalog (100M+ songs), managing playlists with catalog integration, music discovery, and getting current track information.",
   "author": {
-    "name": "Pedro Cid",
-    "email": "pedro.cid@gmail.com"
+    "name": "Pedro Brandão",
+    "email": "pedro@significa.co"
   },
   "server": {
     "type": "node",
     "entry_point": "dist/index.js",
     "mcp_config": {
       "command": "node",
-      "args": [
-        "${__dirname}/dist/index.js"
-      ],
+      "args": ["${__dirname}/dist/index.js"],
       "env": {}
     }
   },
@@ -35,10 +33,32 @@
     },
     {
       "name": "manage_playlist",
-      "description": "List playlists, get tracks, and manage playlist contents"
+      "description": "List playlists, get tracks, and manage playlist contents with catalog search support"
+    },
+    {
+      "name": "queue_music",
+      "description": "Enhanced queue management - view queue, add tracks, play queue, and control playback order"
+    },
+    {
+      "name": "search_apple_music_catalog",
+      "description": "Search the full Apple Music catalog (100M+ songs) for music discovery"
+    },
+    {
+      "name": "add_catalog_track_to_library",
+      "description": "Add tracks from Apple Music catalog to your library"
     }
   ],
-  "keywords": ["music", "apple music", "audio", "playback", "playlist", "macos"],
+  "keywords": [
+    "music",
+    "apple music",
+    "audio",
+    "playback",
+    "playlist",
+    "macos",
+    "catalog",
+    "musickit",
+    "discovery"
+  ],
   "license": "MIT",
   "compatibility": {
     "platforms": ["darwin"],
@@ -48,6 +68,6 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/pedrocid/music-mcp.git"
+    "url": "git+https://github.com/pdrbrnd/music-mcp.git"
   }
 }
