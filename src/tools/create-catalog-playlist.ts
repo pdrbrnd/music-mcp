@@ -1,3 +1,25 @@
+/**
+ * Batch Catalog Search Tool
+ *
+ * Philosophy: Intentional Music Discovery
+ * ========================================
+ *
+ * This tool is designed for INTENTIONAL listening, not bulk automation.
+ * Instead of automatically adding tracks to your library, it:
+ *
+ * 1. Searches Apple Music catalog for multiple tracks
+ * 2. Returns Apple Music URLs for each found track
+ * 3. Lets YOU manually review, preview, and consciously add tracks
+ *
+ * Why this approach?
+ * - Forces engagement with each track
+ * - Builds awareness of artist, album, context
+ * - Creates meaningful, curated playlists
+ * - Avoids passive algorithmic consumption
+ *
+ * This is NOT a limitation - it's a feature that promotes mindful music curation.
+ */
+
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { logger } from "../logger.js";
 import { createMusicKitClient } from "../services/musickit-client.js";
@@ -5,38 +27,42 @@ import { createMusicKitClient } from "../services/musickit-client.js";
 // Helper to add delay between API calls
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export interface CreateCatalogPlaylistInput {
-  playlistName: string;
+export interface BatchCatalogSearchInput {
   tracks: Array<{
     track: string;
     artist: string;
   }>;
-  description?: string;
 }
 
-export interface CreateCatalogPlaylistOutput {
+export interface BatchCatalogSearchOutput {
   success: boolean;
   message: string;
   data?: {
-    playlistId?: string;
-    playlistName: string;
-    tracksAdded: number;
-    tracksNotFound: Array<{ track: string; artist: string }>;
+    found: Array<{
+      requestedTrack: string;
+      requestedArtist: string;
+      catalogTrack: string;
+      catalogArtist: string;
+      catalogAlbum: string;
+      url: string;
+      catalogId: string;
+    }>;
+    notFound: Array<{
+      track: string;
+      artist: string;
+    }>;
+    summary: string;
   };
   error?: string;
 }
 
-export const createCatalogPlaylistTool: Tool = {
-  name: "create_catalog_playlist",
+export const batchCatalogSearchTool: Tool = {
+  name: "batch_catalog_search",
   description:
-    "Create a playlist with tracks from Apple Music catalog in one efficient operation. Searches for multiple tracks, adds them to library, and creates the playlist - all optimized for batch processing. Requires user authorization.",
+    "Search Apple Music catalog for multiple tracks and get Apple Music URLs for manual review and addition. Returns a formatted list of tracks with their Apple Music URLs so you can preview and add them intentionally.",
   inputSchema: {
     type: "object",
     properties: {
-      playlistName: {
-        type: "string",
-        description: "Name of the playlist to create",
-      },
       tracks: {
         type: "array",
         items: {
@@ -53,28 +79,23 @@ export const createCatalogPlaylistTool: Tool = {
           },
           required: ["track", "artist"],
         },
-        description: "Array of tracks with explicit track and artist names",
-      },
-      description: {
-        type: "string",
-        description: "Optional playlist description",
+        description: "Array of tracks to search for",
       },
     },
-    required: ["playlistName", "tracks"],
+    required: ["tracks"],
   },
 };
 
-export async function handleCreateCatalogPlaylist(
-  input: CreateCatalogPlaylistInput,
-): Promise<CreateCatalogPlaylistOutput> {
+export async function handleBatchCatalogSearch(
+  input: BatchCatalogSearchInput,
+): Promise<BatchCatalogSearchOutput> {
   logger.info(
-    { playlistName: input.playlistName, trackCount: input.tracks.length },
-    "Creating catalog playlist",
+    { trackCount: input.tracks.length },
+    "Batch searching catalog for tracks",
   );
 
   const musicKit = createMusicKitClient();
 
-  // Check if MusicKit is configured
   if (!musicKit.isConfigured()) {
     return {
       success: false,
@@ -85,191 +106,67 @@ export async function handleCreateCatalogPlaylist(
   }
 
   try {
-    // Step 1: Search for all tracks using smart search
-    logger.info(
-      "Searching for tracks in catalog with structured track/artist data",
-    );
+    const found: Array<{
+      requestedTrack: string;
+      requestedArtist: string;
+      catalogTrack: string;
+      catalogArtist: string;
+      catalogAlbum: string;
+      url: string;
+      catalogId: string;
+    }> = [];
+    const notFound: Array<{ track: string; artist: string }> = [];
 
-    // Search tracks sequentially with delay to avoid rate limiting
-    const searchResults: (typeof musicKit.smartSearchTrack extends (
-      ...args: any[]
-    ) => Promise<infer T>
-      ? T
-      : never)[] = [];
-
+    // Search for each track with delay to avoid rate limiting
     for (const { track, artist } of input.tracks) {
       try {
         const result = await musicKit.smartSearchTrack(track, artist);
-        searchResults.push(result);
-        // 100ms delay between searches to avoid rate limits
+
+        if (result) {
+          found.push({
+            requestedTrack: track,
+            requestedArtist: artist,
+            catalogTrack: result.attributes.name,
+            catalogArtist: result.attributes.artistName,
+            catalogAlbum: result.attributes.albumName,
+            url: result.attributes.url || "",
+            catalogId: result.id,
+          });
+          logger.info(
+            { track, artist, catalogId: result.id },
+            "Found track in catalog",
+          );
+        } else {
+          notFound.push({ track, artist });
+          logger.warn({ track, artist }, "Track not found in catalog");
+        }
+
+        // Small delay between searches to avoid rate limits
         await sleep(100);
       } catch (error) {
         logger.error({ error, track, artist }, "Failed to search for track");
-        searchResults.push(null);
+        notFound.push({ track, artist });
       }
     }
 
-    // Extract found tracks
-    const foundTracks: {
-      id: string;
-      name: string;
-      artist: string;
-      requestedTrack: string;
-      requestedArtist: string;
-    }[] = [];
-    const notFoundTracks: Array<{ track: string; artist: string }> = [];
-
-    searchResults.forEach((track, index) => {
-      if (track) {
-        foundTracks.push({
-          id: track.id,
-          name: track.attributes.name,
-          artist: track.attributes.artistName,
-          requestedTrack: input.tracks[index].track,
-          requestedArtist: input.tracks[index].artist,
-        });
-      } else {
-        notFoundTracks.push(input.tracks[index]);
-      }
-    });
-
-    if (foundTracks.length === 0) {
-      return {
-        success: false,
-        message: "No tracks found in catalog for any of the search queries",
-        error: "No tracks found",
-        data: {
-          playlistName: input.playlistName,
-          tracksAdded: 0,
-          tracksNotFound: notFoundTracks,
-        },
-      };
-    }
-
-    logger.info(
-      { foundCount: foundTracks.length, notFoundCount: notFoundTracks.length },
-      "Track search completed",
-    );
-
-    // Step 2: Add all tracks to library in one batch
-    const trackIds = foundTracks.map((t) => t.id);
-    logger.info({ count: trackIds.length }, "Adding tracks to library");
-
-    const addResult = await musicKit.addTracksToLibrary(trackIds);
-
-    if (!addResult.success) {
-      return {
-        success: false,
-        message: `Found tracks but failed to add to library: ${addResult.message}`,
-        error: addResult.message,
-        data: {
-          playlistName: input.playlistName,
-          tracksAdded: 0,
-          tracksNotFound: notFoundTracks,
-        },
-      };
-    }
-
-    // Step 3: Get library IDs from catalog IDs
-    logger.info("Mapping catalog IDs to library IDs");
-    const libraryIds: string[] = [];
-    const failedToMap: Array<{ track: string; artist: string }> = [];
-
-    for (const foundTrack of foundTracks) {
-      const libraryTrack = await musicKit.getLibraryTrackByCatalogId(
-        foundTrack.id,
-      );
-
-      if (libraryTrack && libraryTrack.id) {
-        libraryIds.push(libraryTrack.id);
-        logger.info(
-          {
-            track: foundTrack.name,
-            artist: foundTrack.artist,
-            catalogId: foundTrack.id,
-            libraryId: libraryTrack.id,
-          },
-          "Mapped catalog ID to library ID",
-        );
-      } else {
-        failedToMap.push({
-          track: foundTrack.requestedTrack,
-          artist: foundTrack.requestedArtist,
-        });
-        logger.warn(
-          { track: foundTrack.name, artist: foundTrack.artist },
-          "Failed to get library ID for catalog track",
-        );
-      }
-
-      await sleep(100);
-    }
-
-    if (libraryIds.length === 0) {
-      return {
-        success: false,
-        message: "No library IDs found for catalog tracks",
-        error: "Library mapping failed",
-        data: {
-          playlistName: input.playlistName,
-          tracksAdded: 0,
-          tracksNotFound: [...notFoundTracks, ...failedToMap],
-        },
-      };
-    }
-
-    // Step 4: Create playlist with library track IDs
-    logger.info(
-      { count: libraryIds.length },
-      "Creating playlist with library track IDs",
-    );
-
-    const createResult = await musicKit.createPlaylistWithTracks(
-      input.playlistName,
-      libraryIds,
-      input.description,
-    );
-
-    if (!createResult.success) {
-      return {
-        success: false,
-        message: `Tracks added to library but failed to create playlist: ${createResult.message}`,
-        error: createResult.message,
-        data: {
-          playlistName: input.playlistName,
-          tracksAdded: 0,
-          tracksNotFound: [...notFoundTracks, ...failedToMap],
-        },
-      };
-    }
-
-    // Success!
-    const totalNotFound = [...notFoundTracks, ...failedToMap];
-    const successMessage =
-      totalNotFound.length > 0
-        ? `Created playlist "${input.playlistName}" with ${libraryIds.length} track(s). ${totalNotFound.length} track(s) could not be added.`
-        : `Successfully created playlist "${input.playlistName}" with ${libraryIds.length} track(s)`;
+    const summary = `Found ${found.length} of ${input.tracks.length} tracks in Apple Music catalog. ${notFound.length > 0 ? `${notFound.length} tracks could not be found.` : ""}`;
 
     return {
       success: true,
-      message: successMessage,
+      message: summary,
       data: {
-        playlistId: createResult.playlistId,
-        playlistName: input.playlistName,
-        tracksAdded: libraryIds.length,
-        tracksNotFound: totalNotFound,
+        found,
+        notFound,
+        summary,
       },
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(
-      { error, playlistName: input.playlistName },
-      "Failed to create catalog playlist",
-    );
+    logger.error({ error }, "Batch catalog search failed");
 
     return {
       success: false,
-      message: `Failed to create playlist: ${errorMessage}`,
+      message: `Batch catalog search failed: ${errorMessage}`,
       error: errorMessage,
     };
   }

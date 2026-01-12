@@ -3,7 +3,7 @@
 [![npm version](https://badge.fury.io/js/%40pdrbrnd%2Fmusic-mcp.svg)](https://badge.fury.io/js/%40pdrbrnd%2Fmusic-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Model Context Protocol (MCP) server for controlling Apple Music on macOS using AppleScript. This connector provides a structured interface for AI assistants like Claude to interact with the Music app, enabling playback control, library management, music information retrieval, and **full Apple Music catalog search** for music discovery.
+A Model Context Protocol (MCP) server for controlling Apple Music on macOS using AppleScript. This connector provides a structured interface for AI assistants like Claude to interact with the Music app, enabling playback control, library management, music information retrieval, and **Apple Music catalog search** for intentional music discovery.
 
 > **Note**: Forked from [pedrocid/music-mcp](https://github.com/pedrocid/music-mcp) by Pedro Cid, with added Apple Music catalog search capabilities for music discovery.
 
@@ -15,8 +15,9 @@ A Model Context Protocol (MCP) server for controlling Apple Music on macOS using
 - **Playlist Management**: Create, manage, modify, and play playlists
 - **Enhanced Queue Management**: Add tracks to play next, view queue status, and control playback order
 - **Smart "Play Next" Feature**: Queue tracks to play after the current song using temporary playlists
-- **🆕 Apple Music Catalog Search**: Search 100M+ songs from the full Apple Music catalog, not just your library
-- **🆕 Music Discovery**: Add any track from Apple Music to your playlists for discovering new music
+- **🆕 Apple Music Catalog Search**: Search 100M+ songs and get Apple Music URLs for manual review
+- **🆕 Intentional Music Discovery**: Search catalog, review tracks, and manually add what resonates
+- **🆕 Batch Catalog Search**: Search multiple tracks at once and get formatted lists with URLs
 - **Diagnostic Tools**: Built-in info command for troubleshooting
 
 ## Requirements
@@ -200,14 +201,62 @@ You should see:
 - `catalogSearchAvailable: true`
 - `userTokenConfigured: true` (after authorization)
 
-Try creating a playlist with catalog tracks:
+Try searching for tracks in the catalog:
 
 ```
-"Create a playlist called 'Discover' and add these tracks from the catalog: 
-Anti-Hero by Taylor Swift, Vampire by Olivia Rodrigo, Cruel Summer by Taylor Swift"
+"Search Apple Music for Anti-Hero by Taylor Swift"
 ```
 
-Claude will search the catalog, add tracks to your library automatically, and create the playlist.
+Claude will return the track details with an Apple Music URL you can open to preview and add manually.
+
+For batch searching multiple tracks:
+
+```
+"Batch search these tracks: Anti-Hero by Taylor Swift, Vampire by Olivia Rodrigo, Cruel Summer by Taylor Swift"
+```
+
+Claude will return a formatted list with Apple Music URLs for each track found.
+
+## Intentional Music Discovery Workflow
+
+This MCP is designed for **intentional listening** - encouraging you to actively engage with music rather than passively consuming it.
+
+### Philosophy
+
+Instead of bulk-importing playlists automatically, the workflow promotes:
+- **Conscious selection**: Review each track before adding
+- **Artist awareness**: Learn about the artist, album, and context
+- **Intentional curation**: Build playlists that truly resonate with you
+
+### Recommended Workflow
+
+1. **Search for tracks**: Use `search_apple_music_catalog` or `batch_catalog_search` to find tracks
+2. **Get Apple Music URLs**: Each result includes a direct Apple Music link
+3. **Review manually**: Click the URL, listen to preview, check the album
+4. **Add consciously**: If it resonates, add to your library manually or via `add_catalog_track_to_library`
+5. **Curate playlists**: Use `manage_playlist` to organize your intentionally selected tracks
+
+### Example Usage
+
+**Single track discovery:**
+```
+User: "Search Apple Music for Archangel by Burial"
+Claude: Returns track details with Apple Music URL
+User: [Opens URL, listens, decides to add]
+```
+
+**Batch discovery:**
+```
+User: "Batch search these tracks: [list of 30 tracks]"
+Claude: Returns formatted list with URLs for all found tracks
+User: Reviews list, opens interesting tracks, adds selected ones
+```
+
+**Why this approach?**
+- Forces engagement with each track
+- Builds deeper connection with music
+- Avoids algorithmic passive consumption
+- Creates more meaningful playlists
 
 #### Storefront Codes
 
@@ -315,21 +364,25 @@ Search the music library.
 ```
 
 ### `manage_playlist`
-Create and manage playlists. Now supports automatic catalog search fallback.
+Create and manage playlists.
 
 ```json
 {
-  "action": "create|add_track|add_catalog_track|remove_track|rename|delete|list|get_tracks",
+  "action": "create|add_track|remove_track|rename|delete|list|get_tracks",
   "playlistName": "My Playlist",
-  "trackId": "search term for track or catalog track ID",
-  "newName": "New Playlist Name",
-  "useCatalogSearch": true
+  "trackId": "search term for track",
+  "newName": "New Playlist Name"
 }
 ```
 
-**New Features**:
-- `add_catalog_track`: Add a track by its Apple Music catalog ID
-- `useCatalogSearch`: When true, automatically searches Apple Music catalog if track is not found in your library
+**Actions**:
+- `create`: Create a new empty playlist
+- `add_track`: Add a track from your library to a playlist
+- `remove_track`: Remove a track from a playlist
+- `rename`: Rename an existing playlist
+- `delete`: Delete a playlist
+- `list`: List all playlists
+- `get_tracks`: Get tracks in a playlist
 
 ### `queue_music` ✨ **NEW**
 Enhanced queue management and playlist control.
@@ -348,40 +401,60 @@ Enhanced queue management and playlist control.
 - `add_to_queue`: Add tracks to a temporary "Up Next" queue for sequential playback
 - `play_queue`: Play the tracks you've added to the queue
 - `clear_queue`: Clear all tracks from the up next queue
-- `play_playlist`: Play a specific playlist (with optional shuffle)
 
-### `search_apple_music_catalog` 🆕
-Search the full Apple Music catalog (100M+ songs). Requires Apple Music API developer token.
+### `search_apple_music_catalog` 🎵
+Search the Apple Music catalog for tracks not in your library.
 
 ```json
 {
-  "query": "artist name or song title",
+  "query": "artist name, song title, or combination",
   "limit": 25
 }
 ```
 
-Returns catalog tracks with IDs that can be used with `add_catalog_track_to_library` or `manage_playlist` actions.
+Returns track details with Apple Music URLs for manual review and addition.
 
-### `add_catalog_track_to_library` 🆕
-Add a track from the Apple Music catalog to your library. Requires both developer token and user token.
+### `batch_catalog_search` 🎵 **NEW**
+Search for multiple tracks at once and get a formatted list with URLs.
 
 ```json
 {
-  "trackId": "catalog-track-id-from-search",
+  "tracks": [
+    { "track": "Song Title", "artist": "Artist Name" },
+    { "track": "Another Song", "artist": "Another Artist" }
+  ]
+}
+```
+
+Returns:
+- **Found tracks**: With Apple Music URLs for each
+- **Not found**: List of tracks that couldn't be found
+- **Summary**: Count of found vs. not found
+
+**Use Case**: Perfect for discovering new music or transferring playlists. Get URLs for all tracks, then manually review and add the ones you want to your library.
+
+### `add_catalog_track_to_library`
+Add a specific catalog track to your library by its catalog ID.
+
+```json
+{
+  "trackId": "catalog_track_id",
   "addToLibrary": true
 }
 ```
 
-Once added to your library, the track can be added to playlists using the standard `manage_playlist` tool.
+Requires user authorization (OAuth).
 
-### `authorize_apple_music` 🆕
-
-Authorize Music MCP to access your Apple Music library for creating playlists with catalog tracks.
+### `authorize_apple_music`
+One-time authorization to enable adding tracks to your library.
 
 ```json
 {
-  "action": "authorize|check|clear"
+  "action": "authorize"
 }
+```
+
+Opens a browser window for Apple Music authorization. Valid for 180 days.
 ```
 
 **Actions:**
@@ -391,32 +464,7 @@ Authorize Music MCP to access your Apple Music library for creating playlists wi
 
 **One-time setup:** After authorization, tokens are stored securely and automatically refreshed. You won't need to authorize again unless you clear tokens or they expire (180 days).
 
-### `create_catalog_playlist` 🆕⚡
 
-**Efficient batch operation** - Create a playlist with multiple tracks from the Apple Music catalog in one go. Searches, adds to library, and creates playlist in parallel for maximum speed.
-
-```json
-{
-  "playlistName": "My Discover Playlist",
-  "tracks": [
-    { "track": "Anti-Hero", "artist": "Taylor Swift" },
-    { "track": "Vampire", "artist": "Olivia Rodrigo" },
-    { "track": "Cruel Summer", "artist": "Taylor Swift" }
-  ],
-  "description": "My AI-generated playlist"
-}
-```
-
-**Why use this instead of add_track repeatedly:**
-- ⚡ **Much faster** - Batch API calls instead of sequential
-- 🎯 **More efficient** - 3 API calls instead of 30+
-- 🔄 **Parallel search** - All tracks searched simultaneously
-- ✅ **Better UX** - One operation instead of many
-- 🎯 **Structured input** - Explicit track and artist names for accurate matching
-
-**Example:** Creating a 30-track playlist takes ~2 seconds instead of ~60 seconds.
-
-**Important:** Use structured `{ track, artist }` format for best results. This eliminates ambiguity and dramatically improves match rate (e.g., "Archangel" by "Burial" instead of parsing "Archangel Burial").
 
 ## Building as MCP Bundle
 

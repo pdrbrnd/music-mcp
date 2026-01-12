@@ -42,9 +42,9 @@ import {
   AuthorizeInput,
 } from "./tools/authorize.js";
 import {
-  createCatalogPlaylistTool,
-  handleCreateCatalogPlaylist,
-  CreateCatalogPlaylistInput,
+  batchCatalogSearchTool,
+  handleBatchCatalogSearch,
+  BatchCatalogSearchInput,
 } from "./tools/create-catalog-playlist.js";
 
 export async function registerTools(server: Server): Promise<void> {
@@ -61,7 +61,7 @@ export async function registerTools(server: Server): Promise<void> {
         catalogSearchTool,
         addCatalogTrackTool,
         authorizeTool,
-        createCatalogPlaylistTool,
+        batchCatalogSearchTool,
       ],
     };
   });
@@ -192,15 +192,15 @@ export async function registerTools(server: Server): Promise<void> {
           };
         }
 
-        case "create_catalog_playlist": {
-          const createResult = await handleCreateCatalogPlaylist(
-            args as CreateCatalogPlaylistInput,
+        case "batch_catalog_search": {
+          const result = await handleBatchCatalogSearch(
+            args as BatchCatalogSearchInput,
           );
           return {
             content: [
               {
                 type: "text",
-                text: JSON.stringify(createResult, null, 2),
+                text: JSON.stringify(result, null, 2),
               },
             ],
           };
