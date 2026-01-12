@@ -1,33 +1,9 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { logger } from "../logger.js";
 import { createMusicKitClient } from "../services/musickit-client.js";
-import { execSync } from "child_process";
-import { join } from "path";
-import { getConfig } from "../config.js";
 
 // Helper to add delay between API calls
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-// Helper to execute AppleScript
-async function executeAppleScript(
-  scriptPath: string,
-  args: string[],
-  timeout: number,
-): Promise<string> {
-  const command = `osascript "${scriptPath}" ${args.map((arg) => `"${arg.replace(/"/g, '\\"')}"`).join(" ")}`;
-  try {
-    const result = execSync(command, {
-      encoding: "utf-8",
-      timeout,
-    });
-    return result.trim();
-  } catch (error: any) {
-    if (error.stderr) {
-      throw new Error(error.stderr.toString().trim());
-    }
-    throw error;
-  }
-}
 
 export interface CreateCatalogPlaylistInput {
   playlistName: string;
@@ -194,16 +170,63 @@ export async function handleCreateCatalogPlaylist(
       };
     }
 
-    // Wait for Apple Music to index the tracks in the library
-    logger.info("Waiting for library sync...");
-    await sleep(2000);
+    // Step 3: Get library IDs from catalog IDs
+    logger.info("Mapping catalog IDs to library IDs");
+    const libraryIds: string[] = [];
+    const failedToMap: Array<{ track: string; artist: string }> = [];
 
-    // Step 3: Create empty playlist via API
-    logger.info("Creating empty playlist");
+    for (const foundTrack of foundTracks) {
+      const libraryTrack = await musicKit.getLibraryTrackByCatalogId(
+        foundTrack.id,
+      );
+
+      if (libraryTrack && libraryTrack.id) {
+        libraryIds.push(libraryTrack.id);
+        logger.info(
+          {
+            track: foundTrack.name,
+            artist: foundTrack.artist,
+            catalogId: foundTrack.id,
+            libraryId: libraryTrack.id,
+          },
+          "Mapped catalog ID to library ID",
+        );
+      } else {
+        failedToMap.push({
+          track: foundTrack.requestedTrack,
+          artist: foundTrack.requestedArtist,
+        });
+        logger.warn(
+          { track: foundTrack.name, artist: foundTrack.artist },
+          "Failed to get library ID for catalog track",
+        );
+      }
+
+      await sleep(100);
+    }
+
+    if (libraryIds.length === 0) {
+      return {
+        success: false,
+        message: "No library IDs found for catalog tracks",
+        error: "Library mapping failed",
+        data: {
+          playlistName: input.playlistName,
+          tracksAdded: 0,
+          tracksNotFound: [...notFoundTracks, ...failedToMap],
+        },
+      };
+    }
+
+    // Step 4: Create playlist with library track IDs
+    logger.info(
+      { count: libraryIds.length },
+      "Creating playlist with library track IDs",
+    );
 
     const createResult = await musicKit.createPlaylistWithTracks(
       input.playlistName,
-      [],
+      libraryIds,
       input.description,
     );
 
@@ -215,79 +238,17 @@ export async function handleCreateCatalogPlaylist(
         data: {
           playlistName: input.playlistName,
           tracksAdded: 0,
-          tracksNotFound: notFoundTracks,
+          tracksNotFound: [...notFoundTracks, ...failedToMap],
         },
       };
     }
 
-    // Step 4: Add tracks to playlist via AppleScript (using library search)
-    logger.info("Adding tracks to playlist via AppleScript");
-    const config = getConfig();
-    let addedCount = 0;
-    const failedTracks: Array<{ track: string; artist: string }> = [];
-
-    for (const foundTrack of foundTracks) {
-      const searchTerms = musicKit.getLibrarySearchTerms({
-        id: foundTrack.id,
-        type: "songs",
-        attributes: {
-          name: foundTrack.name,
-          artistName: foundTrack.artist,
-          albumName: "",
-          durationInMillis: 0,
-          releaseDate: "",
-          genreNames: [],
-          url: "",
-        },
-      });
-
-      let added = false;
-      for (const term of searchTerms) {
-        try {
-          const result = await executeAppleScript(
-            join(
-              __dirname,
-              "../scripts/playlist/add-to-playlist-enhanced.applescript",
-            ),
-            [input.playlistName, term],
-            config.timeoutSeconds * 1000,
-          );
-
-          if (!result.startsWith("Error")) {
-            addedCount++;
-            added = true;
-            logger.info(
-              { track: foundTrack.name, artist: foundTrack.artist },
-              "Track added to playlist",
-            );
-            break;
-          }
-        } catch (error) {
-          continue;
-        }
-      }
-
-      if (!added) {
-        failedTracks.push({
-          track: foundTrack.requestedTrack,
-          artist: foundTrack.requestedArtist,
-        });
-        logger.warn(
-          { track: foundTrack.name, artist: foundTrack.artist },
-          "Failed to add track to playlist",
-        );
-      }
-
-      // Small delay between adds
-      await sleep(100);
-    }
-
     // Success!
-    const totalNotFound = [...notFoundTracks, ...failedTracks];
+    const totalNotFound = [...notFoundTracks, ...failedToMap];
     const successMessage =
       totalNotFound.length > 0
-        ? `Created playlist "${input.playlistName}" with ${addedCount} track(s). ${totalNotFound.length} track(s) could not be added.`
-        : `Successfully created playlist "${input.playlistName}" with ${addedCount} track(s)`;
+        ? `Created playlist "${input.playlistName}" with ${libraryIds.length} track(s). ${totalNotFound.length} track(s) could not be added.`
+        : `Successfully created playlist "${input.playlistName}" with ${libraryIds.length} track(s)`;
 
     return {
       success: true,
@@ -295,7 +256,7 @@ export async function handleCreateCatalogPlaylist(
       data: {
         playlistId: createResult.playlistId,
         playlistName: input.playlistName,
-        tracksAdded: addedCount,
+        tracksAdded: libraryIds.length,
         tracksNotFound: totalNotFound,
       },
     };

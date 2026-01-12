@@ -280,7 +280,7 @@ export class MusicKitClient {
    * @param targetArtist Target artist name (optional)
    * @returns Score between 0 and 1
    */
-  private scoreTrackMatch(
+  public scoreTrackMatch(
     track: CatalogTrack,
     targetTrack: string,
     targetArtist?: string,
@@ -357,6 +357,131 @@ export class MusicKitClient {
 
     return matches >= Math.min(words1.length, words2.length) * 0.6;
   }
+  /**
+   * Search user's library for tracks
+   * @param query Search query string
+   * @param limit Maximum number of results (default: 25)
+   * @returns Array of library tracks with library IDs
+   */
+  async searchLibrary(
+    query: string,
+    limit: number = 25,
+  ): Promise<CatalogTrack[]> {
+    if (!this.developerToken) {
+      throw new Error("MusicKit developer token not configured");
+    }
+
+    if (!this.userToken) {
+      throw new Error("User token required to search library");
+    }
+
+    try {
+      const encodedQuery = encodeURIComponent(query);
+      const url = `${this.baseUrl}/me/library/search?term=${encodedQuery}&types=library-songs&limit=${limit}`;
+
+      logger.debug({ query, limit }, "Searching user library");
+
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${this.developerToken}`,
+          "Music-User-Token": this.userToken,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Library search failed: ${response.status} ${response.statusText}`,
+        );
+      }
+
+      const data = await response.json();
+      const tracks = data.results?.["library-songs"]?.data || [];
+
+      logger.debug(
+        { query, resultCount: tracks.length },
+        "Library search completed",
+      );
+
+      return tracks;
+    } catch (error) {
+      logger.error({ error, query }, "Library search failed");
+      return [];
+    }
+  }
+
+  /**
+   * Get library track ID from catalog track ID with retry/polling
+   * After adding a catalog track to library, use this to find its library ID
+   * Polls until track appears or max attempts reached with exponential backoff
+   * @param catalogId Catalog track ID
+   * @param maxAttempts Maximum number of polling attempts (default: 8)
+   * @param initialDelayMs Initial delay between attempts in milliseconds (default: 300)
+   * @returns Library track or null if not found
+   */
+  async getLibraryTrackByCatalogId(
+    catalogId: string,
+    maxAttempts: number = 8,
+    initialDelayMs: number = 300,
+  ): Promise<CatalogTrack | null> {
+    if (!this.developerToken || !this.userToken) {
+      return null;
+    }
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        // Use the catalog track's library relationship
+        const url = `${this.baseUrl}/catalog/${this.storefront}/songs/${catalogId}/library`;
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${this.developerToken}`,
+            "Music-User-Token": this.userToken,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const libraryTrack = data.data?.[0];
+
+          if (libraryTrack) {
+            logger.debug(
+              { catalogId, libraryId: libraryTrack.id, attempt },
+              "Found library track",
+            );
+            return libraryTrack;
+          }
+        }
+
+        // Track not in library yet, wait before retrying with exponential backoff
+        if (attempt < maxAttempts) {
+          const backoffDelay = initialDelayMs * Math.pow(2, attempt - 1);
+          logger.debug(
+            { catalogId, attempt, maxAttempts, delayMs: backoffDelay },
+            "Track not in library yet, retrying...",
+          );
+          await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+        }
+      } catch (error) {
+        logger.error(
+          { error, catalogId, attempt },
+          "Error checking library track",
+        );
+        if (attempt < maxAttempts) {
+          const backoffDelay = initialDelayMs * Math.pow(2, attempt - 1);
+          await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+        }
+      }
+    }
+
+    logger.warn(
+      { catalogId, maxAttempts },
+      "Track not found in library after polling",
+    );
+    return null;
+  }
+
   /**
    * Get track details by ID
    * @param trackId Apple Music catalog track ID
@@ -557,55 +682,90 @@ export class MusicKitClient {
     }
 
     try {
-      const url = `${this.baseUrl}/me/library/playlists`;
-
-      // Build tracks array for the playlist
-      const tracks = trackIds.map((id) => ({
-        id,
-        type: "songs",
-      }));
-
-      const body = {
+      // Step 1: Create empty playlist
+      const createUrl = `${this.baseUrl}/me/library/playlists`;
+      const createBody = {
         attributes: {
           name,
           description: description || "",
         },
-        relationships: {
-          tracks: {
-            data: tracks,
-          },
-        },
       };
 
-      const response = await fetch(url, {
+      const createResponse = await fetch(createUrl, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${this.developerToken}`,
           "Music-User-Token": this.userToken,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(body),
+        body: JSON.stringify(createBody),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
+      if (!createResponse.ok) {
+        const errorText = await createResponse.text();
         return {
           success: false,
-          message: `Failed to create playlist: ${response.status} ${response.statusText} - ${errorText}`,
+          message: `Failed to create playlist: ${createResponse.status} ${createResponse.statusText} - ${errorText}`,
         };
       }
 
-      const data = await response.json();
-      const playlistId = data.data?.[0]?.id;
+      const createData = await createResponse.json();
+      const playlistId = createData.data?.[0]?.id;
 
-      logger.info(
-        { playlistId, name, trackCount: trackIds.length },
-        "Playlist created with tracks",
-      );
+      if (!playlistId) {
+        return {
+          success: false,
+          message: "Failed to get playlist ID from create response",
+        };
+      }
+
+      logger.info({ playlistName: name, playlistId }, "Empty playlist created");
+
+      // Step 2: Add tracks to playlist if any provided
+      if (trackIds.length > 0) {
+        const addUrl = `${this.baseUrl}/me/library/playlists/${playlistId}/tracks`;
+
+        // Use library IDs with library-songs type
+        const tracksBody = {
+          data: trackIds.map((id) => ({
+            id,
+            type: "library-songs",
+          })),
+        };
+
+        const addResponse = await fetch(addUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${this.developerToken}`,
+            "Music-User-Token": this.userToken,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(tracksBody),
+        });
+
+        if (!addResponse.ok) {
+          const errorText = await addResponse.text();
+          logger.warn(
+            {
+              playlistId,
+              trackCount: trackIds.length,
+              status: addResponse.status,
+              error: errorText,
+            },
+            "Failed to add some tracks to playlist",
+          );
+          // Don't fail completely - playlist was created
+        } else {
+          logger.info(
+            { playlistId, trackCount: trackIds.length },
+            "Tracks added to playlist",
+          );
+        }
+      }
 
       return {
         success: true,
-        message: `Successfully created playlist "${name}" with ${trackIds.length} track(s)`,
+        message: `Playlist "${name}" created successfully`,
         playlistId,
         playlistName: name,
       };
@@ -613,7 +773,7 @@ export class MusicKitClient {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       logger.error(
-        { error, name, trackCount: trackIds.length },
+        { error, playlistName: name, trackCount: trackIds.length },
         "Failed to create playlist",
       );
       return {
