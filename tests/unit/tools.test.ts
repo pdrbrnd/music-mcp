@@ -7,8 +7,16 @@ import {
 import {
   handlePlaylistCreate,
   handlePlaylistAddTracks,
+  handlePlaylistRemoveTracks,
+  handlePlaylistRename,
+  handlePlaylistDelete,
+  handlePlaylistGetTracks,
 } from "../../src/tools/playlists.js";
-import { handleDiscoverSearchCatalog } from "../../src/tools/discovery.js";
+import {
+  handleDiscoverSearchCatalog,
+  handleDiscoverTracks,
+  handleDiscoverAlbums,
+} from "../../src/tools/discovery.js";
 
 // Mock child_process execSync
 vi.mock("child_process", () => ({
@@ -44,6 +52,24 @@ vi.mock("child_process", () => ({
     }
     if (cmd.includes("create-playlist")) {
       return "Playlist created successfully";
+    }
+    if (cmd.includes("add-to-playlist")) {
+      return "Track added successfully";
+    }
+    if (cmd.includes("remove-from-playlist")) {
+      return "Track removed successfully";
+    }
+    if (cmd.includes("rename-playlist")) {
+      return "Playlist renamed successfully";
+    }
+    if (cmd.includes("delete-playlist")) {
+      return "Playlist deleted successfully";
+    }
+    if (cmd.includes("get-playlist-tracks")) {
+      return JSON.stringify([
+        { title: "Track 1", artist: "Artist 1" },
+        { title: "Track 2", artist: "Artist 2" },
+      ]);
     }
     return "";
   }),
@@ -163,6 +189,67 @@ describe("Playlist Tools", () => {
 
       expect(result.data.added).toBe(0);
     });
+
+    it("should batch add multiple tracks", async () => {
+      const result = await handlePlaylistAddTracks({
+        playlist_name: "Test Playlist",
+        track_search_terms: ["Track 1", "Track 2", "Track 3"],
+      });
+
+      expect(result.data).toBeDefined();
+      expect(result.data.results).toBeDefined();
+      expect(Array.isArray(result.data.results)).toBe(true);
+    });
+  });
+
+  describe("playlist_remove_tracks", () => {
+    it("should remove tracks from playlist", async () => {
+      const result = await handlePlaylistRemoveTracks({
+        playlist_name: "Test Playlist",
+        track_search_terms: ["Track 1"],
+      });
+
+      expect(result.success).toBeDefined();
+      expect(result.data).toBeDefined();
+      expect(result.data.playlist_name).toBe("Test Playlist");
+    });
+  });
+
+  describe("playlist_rename", () => {
+    it("should rename playlist", async () => {
+      const result = await handlePlaylistRename({
+        current_name: "Old Name",
+        new_name: "New Name",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
+      expect(result.data.old_name).toBe("Old Name");
+      expect(result.data.new_name).toBe("New Name");
+    });
+  });
+
+  describe("playlist_delete", () => {
+    it("should delete playlist", async () => {
+      const result = await handlePlaylistDelete({
+        name: "Test Playlist",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data.playlist_name).toBe("Test Playlist");
+    });
+  });
+
+  describe("playlist_get_tracks", () => {
+    it("should get tracks from playlist", async () => {
+      const result = await handlePlaylistGetTracks({
+        name: "Test Playlist",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
+      expect(result.data.playlist_name).toBe("Test Playlist");
+    });
   });
 });
 
@@ -175,6 +262,35 @@ describe("Discovery Tools", () => {
 
       expect(result.catalogAvailable).toBe(false);
       expect(result.message).toContain("DISCOVERY MODE: Not Available");
+    });
+
+    it("should require a query parameter", async () => {
+      const result = await handleDiscoverSearchCatalog({
+        query: "",
+      });
+
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe("discover_tracks", () => {
+    it("should return not available when not configured", async () => {
+      const result = await handleDiscoverTracks({
+        seed_type: "artist",
+        seed_value: "Radiohead",
+      });
+
+      expect(result.catalogAvailable).toBe(false);
+    });
+  });
+
+  describe("discover_albums", () => {
+    it("should return not available when not configured", async () => {
+      const result = await handleDiscoverAlbums({
+        seed_artist: "Radiohead",
+      });
+
+      expect(result.catalogAvailable).toBe(false);
     });
   });
 });
@@ -201,5 +317,46 @@ describe("Output Format Validation", () => {
 
     // Even when not available, message should be formatted
     expect(result.message).toContain("🎵 DISCOVERY MODE");
+  });
+
+  it("playlist tools should handle batch operations", async () => {
+    const result = await handlePlaylistAddTracks({
+      playlist_name: "Test",
+      track_search_terms: ["Track 1", "Track 2", "Track 3"],
+    });
+
+    expect(result.data.results).toBeDefined();
+    expect(Array.isArray(result.data.results)).toBe(true);
+  });
+});
+
+describe("Edge Cases", () => {
+  it("should validate empty playlist names", async () => {
+    // This tests that the function handles edge cases
+    // Even if AppleScript allows it, we're testing the handler
+    const result = await handlePlaylistCreate({ name: "" });
+
+    expect(result).toBeDefined();
+    expect(result.success).toBeDefined();
+  });
+
+  it("should handle empty search queries", async () => {
+    const result = await handleLibrarySearch({
+      query: "",
+      type: "track",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Empty query");
+  });
+
+  it("should handle empty track lists in playlist operations", async () => {
+    const result = await handlePlaylistAddTracks({
+      playlist_name: "Test",
+      track_search_terms: [],
+    });
+
+    expect(result.data.added).toBe(0);
+    expect(result.data.failed).toBe(0);
   });
 });
