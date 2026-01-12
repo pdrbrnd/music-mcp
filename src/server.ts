@@ -36,11 +36,7 @@ import {
   CatalogSearchInput,
   AddCatalogTrackInput,
 } from "./tools/catalog-search.js";
-import {
-  authorizeTool,
-  handleAuthorize,
-  AuthorizeInput,
-} from "./tools/authorize.js";
+
 import {
   batchCatalogSearchTool,
   handleBatchCatalogSearch,
@@ -60,7 +56,7 @@ export async function registerTools(server: Server): Promise<void> {
         queueMusicTool,
         catalogSearchTool,
         addCatalogTrackTool,
-        authorizeTool,
+
         batchCatalogSearchTool,
       ],
     };
@@ -175,18 +171,6 @@ export async function registerTools(server: Server): Promise<void> {
               {
                 type: "text",
                 text: JSON.stringify(addResult, null, 2),
-              },
-            ],
-          };
-        }
-
-        case "authorize_apple_music": {
-          const authorizeResult = await handleAuthorize(args as AuthorizeInput);
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(authorizeResult, null, 2),
               },
             ],
           };

@@ -1,5 +1,4 @@
 import { logger } from "../logger.js";
-import { OAuthHandler } from "./oauth-handler.js";
 
 export interface MusicKitConfig {
   developerToken?: string;
@@ -57,12 +56,6 @@ export class MusicKitClient {
   constructor(config: MusicKitConfig) {
     this.developerToken = config.developerToken;
     this.userToken = config.userToken;
-
-    // If no user token provided, try to load from OAuth handler
-    if (!this.userToken && this.developerToken) {
-      const oauthHandler = new OAuthHandler(this.developerToken);
-      this.userToken = oauthHandler.getUserToken() || undefined;
-    }
   }
 
   /**

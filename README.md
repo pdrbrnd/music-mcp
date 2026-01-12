@@ -168,26 +168,7 @@ Enable music discovery by searching the full Apple Music catalog (100M+ songs).
    }
    ```
 
-7. **Authorize Your Apple Music Account**
-
-   After configuring the developer token, you need to authorize access to your Apple Music library:
-   
-   - Restart Claude Desktop
-   - Ask Claude: **"Authorize Apple Music"**
-   - A browser window will open with Apple Music authorization
-   - Click **"Authorize Apple Music"** button
-   - Sign in with your Apple ID if prompted
-   - Grant permissions
-   - You'll see a success message
-   
-   This is a **one-time setup**. The authorization is stored securely and won't expire for 180 days.
-   
-   **What this enables:**
-   - Create playlists with tracks from the full Apple Music catalog
-   - Add any song (even ones not in your library) to playlists
-   - Full music discovery without manual clicking
-
-8. **You're Done!**
+7. **You're Done!**
 
 #### Verify Setup
 
@@ -199,7 +180,6 @@ Ask Claude:
 You should see:
 - `catalogSearchConfigured: true`
 - `catalogSearchAvailable: true`
-- `userTokenConfigured: true` (after authorization)
 
 Try searching for tracks in the catalog:
 
@@ -326,7 +306,7 @@ Get diagnostic information about the MCP server status.
 }
 ```
 
-Returns version information, Music app availability, catalog search status, authorization status, and configuration details.
+Returns version information, Music app availability, catalog search status, and configuration details.
 
 ### `execute_music_command`
 Execute music playback control commands.
@@ -443,26 +423,7 @@ Add a specific catalog track to your library by its catalog ID.
 }
 ```
 
-Requires user authorization (OAuth).
-
-### `authorize_apple_music`
-One-time authorization to enable adding tracks to your library.
-
-```json
-{
-  "action": "authorize"
-}
-```
-
-Opens a browser window for Apple Music authorization. Valid for 180 days.
-```
-
-**Actions:**
-- `authorize` - Start OAuth flow to authenticate with Apple Music (opens browser)
-- `check` - Verify current authorization status
-- `clear` - Remove stored authorization tokens
-
-**One-time setup:** After authorization, tokens are stored securely and automatically refreshed. You won't need to authorize again unless you clear tokens or they expire (180 days).
+**Note:** Requires user token to be configured. For manual library additions, tracks must be added through the Music app first, then can be managed via playlists.
 
 
 
@@ -560,9 +521,9 @@ Here are some example interactions you can have with Claude using this MCP serve
 - "Clear my queue and add these 3 songs to play after the current track"
 - "Play my 'Party Mix' playlist next"
 
-**Music Discovery (NEW - Requires MusicKit + Authorization):**
-- "Authorize Apple Music" (one-time setup)
+**Music Discovery (NEW - Requires MusicKit):**
 - "Search the Apple Music catalog for songs by Radiohead"
+- "Batch search these tracks: [list of tracks with artists]"
 - "Create a playlist called 'Discover Weekly' and add Motion Picture Soundtrack by Radiohead, Paranoid Android, and Karma Police"
 - "Make me a 90s alternative rock playlist with 20 songs I probably don't have"
 - "Create a workout playlist with high energy tracks from the catalog"
