@@ -1,6 +1,6 @@
 # Music MCP
 
-A Model Context Protocol (MCP) server for Apple Music on macOS. Manage your music library and discover new music through Claude or any MCP client.
+A Model Context Protocol (MCP) server for Apple Music on macOS. Manage your music library and let Claude recommend music based on your taste.
 
 ## What This Does
 
@@ -12,12 +12,23 @@ This MCP has two distinct modes:
 - View what's currently playing
 
 ### 🎵 Discovery (Requires Apple Music API)
-- Search Apple Music's 100M+ track catalog
-- Get personalized recommendations (similar artists, albums, tracks)
-- Check which catalog tracks are already in your library
-- Generate discovery playlists (your music + new suggestions)
 
-**Discovery tools output recommendations only—no automatic modifications.** You preview tracks, consciously add favorites to your library, then use the library tools to create playlists.
+**Claude generates personalized recommendations based on your taste profile, then searches Apple Music's catalog to find those tracks.**
+
+This is NOT using Apple's recommendation APIs. Claude uses its own knowledge and understanding of your taste to suggest music, then uses these tools to:
+- Search Apple Music's catalog for specific tracks/artists
+- Check which tracks are already in your library
+- Present results with preview links and catalog IDs
+
+**Workflow:**
+1. You ask Claude for recommendations (e.g., "recommend microhouse artists like Villalobos")
+2. Claude generates recommendations based on its knowledge and your taste
+3. Claude searches Apple Music catalog for each recommendation
+4. Claude presents formatted results with preview links
+5. You preview tracks, add favorites to your library manually
+6. Use library tools to create playlists with your selected tracks
+
+**No automatic modifications.** You stay in control of what enters your library.
 
 ## Quick Start
 
@@ -87,7 +98,11 @@ Restart Claude Desktop and try:
 
 If you configured API keys:
 
-> "Find me new albums similar to Boards of Canada"
+> "Recommend me artists similar to Floating Points based on my taste"
+
+> "Create a microhouse playlist for focusing - recommend some tracks"
+
+> "Find the track 'Cumbia del Mar' by Nicola Cruz in Apple Music"
 
 ---
 
@@ -194,9 +209,16 @@ Search your library for tracks, albums, or artists.
 - `type` (optional): `"track"`, `"album"`, `"artist"`, or `"all"` (default)
 - `limit` (optional): Max results (default: 50)
 
+**Returns:** Track details including:
+- Title, artist, album
+- Duration (in seconds) - useful for creating time-based playlists
+- Genre - useful for filtering by style
+- Year - useful for chronological sorting
+
 ```
 Example: "Find all Radiohead tracks in my library"
 Example: "Search my library for jazz albums"
+Example: "Find energetic tracks for a 30-minute playlist"
 ```
 
 ---
@@ -284,113 +306,134 @@ Get all tracks in a playlist.
 
 ### 🎵 Discovery (Requires API Keys)
 
+**Important:** These tools don't generate recommendations. Claude does that based on its knowledge and your taste profile. These tools just search Apple Music's catalog for the tracks Claude recommends.
+
 #### `discover_search_catalog`
-Search Apple Music's full catalog.
+Search Apple Music's catalog for specific tracks, albums, or artists.
 
 **Parameters:**
-- `query` (required): Search term
-- `limit` (optional): Max results (default: 25)
+- `query` (required): Search term (artist name, track name, or "artist - track")
+- `limit` (optional): Max results (default: 5)
+
+**How Claude should use this:**
+1. Generate recommendations based on user's taste
+2. Call this tool for each recommendation
+3. Format results with preview links and catalog IDs
 
 ```
-Example: "Search Apple Music catalog for Jon Hopkins"
+Example workflow:
+User: "Recommend microhouse tracks for focusing"
+Claude thinks: "Based on their taste, I'll recommend Villalobos, Ricardo Villalobos, Zip..."
+Claude calls: discover_search_catalog("Villalobos Fizheuer Zieheuer")
+Claude calls: discover_search_catalog("Ricardo Villalobos Dexter")
+etc.
 ```
 
-**Returns:** Formatted markdown table with:
+**Returns:** Track details with:
 - Track names, artists, albums
-- Apple Music deep links for previewing
-- Catalog IDs for adding to library
+- Apple Music preview links
+- Catalog IDs
 - Duration and release info
 
 ---
 
 #### `discover_check_library_status`
-Check which catalog tracks are already in your library.
+Check which catalog tracks are already in the user's library.
 
 **Parameters:**
 - `catalog_track_ids` (required): Array of Apple Music catalog IDs
 
+**Use after searching to filter out tracks the user already has.**
+
 ```
-Example: "Check which of these tracks I already have: [id1, id2, id3]"
+Example: After searching for 10 tracks, check which ones are new vs. already owned
 ```
 
-**Returns:** Split list of:
-- ✓ Tracks already in your library
-- [ ] Tracks not in your library (with Apple Music links)
+**Returns:** Track details with preview links
 
 ---
 
-#### `discover_tracks`
-Get personalized track recommendations.
+## For Claude: How to Use These Tools
 
-**Parameters:**
-- `seed_type` (required): `"artist"`, `"album"`, `"track"`, or `"genre"`
-- `seed_value` (required): Artist name, track name, album name, or genre
-- `limit` (optional): Number of recommendations (default: 20)
+**You are Claude, and this MCP lets you help users discover and organize music.**
 
-```
-Example: "Recommend tracks similar to Bonobo"
-Example: "Find tracks like 'Midnight City' by M83"
-```
+### Core Principle
 
-**Returns:** Formatted recommendations with library status, preview links, and next steps.
+**YOU generate recommendations based on your knowledge of music and the user's taste. These tools just search Apple Music's catalog for the tracks YOU recommend.**
 
----
+Do NOT use these tools to "discover" or "recommend" music. That's YOUR job. Use these tools to:
+1. Search Apple Music for tracks/artists YOU recommend
+2. Check if tracks are already in the user's library
+3. Manage playlists with library tracks
 
-#### `discover_albums`
-Get album recommendations.
+### Recommendation Workflow
 
-**Parameters:**
-- `seed_artist` (optional): Artist to base recommendations on
-- `seed_genre` (optional): Genre for recommendations
-- `limit` (optional): Number of albums (default: 10)
+When a user asks for recommendations:
 
-```
-Example: "Recommend new electronic albums"
-Example: "Find albums similar to Tycho"
-```
+1. **Generate recommendations yourself** based on:
+   - Your knowledge of music, genres, and artists
+   - The user's stated taste profile
+   - Similar artists/tracks they mention
+   - Context (mood, activity, energy level)
 
----
+2. **Search Apple Music** for each recommendation:
+   ```
+   Call: discover_search_catalog("Villalobos Fizheuer Zieheuer")
+   Call: discover_search_catalog("Ricardo Villalobos Dexter")
+   ```
 
-#### `discover_artists`
-Get similar artist recommendations.
+3. **Present formatted results** with:
+   - Track details
+   - Preview links
+   - Catalog IDs
+   - Brief explanation of why it fits
 
-**Parameters:**
-- `seed_artist` (required): Artist name
-- `limit` (optional): Number of artists (default: 10)
+4. **Guide next steps**:
+   - "Preview these tracks and add your favorites to Apple Music"
+   - "Once added, I can help create a playlist"
 
-```
-Example: "Find artists similar to Four Tet"
-```
+### Example Request Types
 
----
+**"Recommend artists similar to X"**
+- YOU think of similar artists based on your knowledge
+- Search catalog for tracks by those artists
+- Present with explanations
 
-#### `discover_generate_playlist`
-Generate a discovery playlist concept (your library + new recommendations).
+**"Create a [mood] playlist for [activity]"**
+- Search user's library for matching tracks
+- YOU recommend additional tracks that fit
+- Search catalog for your recommendations
+- Present curated list
 
-**Parameters:**
-- `theme` (required): Playlist theme or description
-- `include_library_tracks` (optional): Include tracks from your library (default: true)
-- `new_track_count` (optional): Number of new tracks to suggest (default: 15)
+**"Find this specific track"**
+- Search catalog directly
+- Present results
 
-```
-Example: "Create a late-night ambient playlist"
-Example: "Build a workout playlist with high-energy electronic music"
-```
+### What NOT to Do
 
-**Returns:** 
-- Playlist concept with theme description
-- Tracks from your library that fit
-- New track recommendations with preview links
-- Step-by-step instructions for creating the playlist
+❌ Don't say "Let me discover tracks for you"
+❌ Don't rely on Apple's recommendation APIs (they're not available)
+❌ Don't use discover tools to generate recommendations
 
-**Note:** This generates recommendations only. You must:
-1. Preview the suggested tracks using Apple Music links
-2. Add your favorites to your library
-3. Use `playlist_create` and `playlist_add_tracks` to build the actual playlist
+✅ Do use your knowledge to recommend
+✅ Do use discover tools to search for what YOU recommend
+✅ Do explain WHY you're recommending each track/artist
 
 ---
 
 ## Usage Examples
+
+### Your Taste Profile
+
+Keep the user's music taste in your context/memory. This might include:
+- Favorite genres (e.g., "microhouse, ambient, world music, downtempo")
+- Favorite artists (e.g., "Villalobos, Nicola Cruz, Floating Points, Nils Frahm")
+- Musical characteristics you like (e.g., "atmospheric, minimal, organic sounds, no vocals")
+- What you use music for (e.g., "focusing while coding, cooking, relaxing")
+
+With this context, Claude can generate personalized recommendations without relying on Apple's algorithms.
+
+**Tip:** See `examples/taste-profile-template.md` for a complete taste profile template you can fill out and include in your Claude Project instructions.
 
 ### Basic Library Management
 
@@ -457,154 +500,203 @@ Claude: Removed 4 tracks: Holocene, Woods, Perth, Re: Stacks
 
 ### Discovery Workflows
 
-**Find similar artists:**
-```
-You: "Find me artists similar to Boards of Canada"
+**Important:** Claude generates these recommendations based on its knowledge and your taste profile, then searches Apple Music to find the tracks.
 
-Claude: 🎵 DISCOVERY MODE - SIMILAR ARTISTS
-        ========================================
+**Recommend similar artists:**
+```
+You: "Recommend artists similar to Floating Points based on my taste"
+
+Claude: Based on your taste for ambient/electronic and artists like Floating Points,
+        here are some recommendations:
         
-        Artists similar to: Boards of Canada
+        1. **Nils Frahm** - Piano-based electronic, atmospheric
+        2. **Jon Hopkins** - Intricate electronic production, emotional depth
+        3. **Kiasmos** - Minimal techno with organic elements
+        4. **Ólafur Arnalds** - Neo-classical electronic fusion
+        5. **Four Tet** - Experimental electronic, textural
         
-        1. **Tycho**
-           - Sample: "Awake" from Awake
-           - Genres: Electronic, Ambient
-           - [Preview in Apple Music →](https://music.apple.com/...)
+        Let me search Apple Music for these artists...
         
-        2. **Ólafur Arnalds**
-           - Sample: "Near Light" from re:member
-           - [Preview in Apple Music →](https://music.apple.com/...)
+        [Calls discover_search_catalog for each artist]
         
-        3. **Jon Hopkins**
-           - Sample: "Open Eye Signal" from Immunity
-           - [Preview in Apple Music →](https://music.apple.com/...)
+        🎵 FOUND IN APPLE MUSIC:
+        
+        1. **Nils Frahm - All Melody**
+           [Preview →](https://music.apple.com/...)
+           Catalog ID: `1234567890`
+        
+        2. **Jon Hopkins - Immunity**
+           [Preview →](https://music.apple.com/...)
+           Catalog ID: `0987654321`
         
         📋 NEXT STEPS:
-        1. Click "Preview →" to explore each artist
-        2. Use discover_tracks to get more from artists you like
-        3. Add tracks to your library, then create playlists
+        1. Click preview links to listen
+        2. Add tracks you like to your Apple Music library
+        3. Let me know which ones you added, I'll help create a playlist
 ```
 
-**Get track recommendations:**
+**Recommend tracks for a specific mood/activity:**
 ```
-You: "I like Bonobo. Recommend similar tracks."
+You: "Recommend microhouse tracks for deep focus coding sessions"
 
-Claude: 🎵 DISCOVERY MODE - TRACK RECOMMENDATIONS
+Claude: Perfect! Based on your taste for minimal, hypnotic electronic music,
+        here are some microhouse classics:
+        
+        1. "Fizheuer Zieheuer" - Villalobos
+        2. "Dexter" - Ricardo Villalobos
+        3. "Knight Moves" - Zip
+        4. "Mental Madness Music" - Luciano
+        5. "The Long Tomorrow" - Petre Inspirescu
+        
+        Searching Apple Music...
+        
+        🎵 APPLE MUSIC CATALOG SEARCH
         ========================================
         
-        Based on artist: "Bonobo"
-        Found 20 recommendation(s):
+        Found: 5 results
         
-        1. **Breathe** by Floating Points
-           - Album: Crush
-           - Duration: 9:03
-           - [Preview →](https://music.apple.com/...)
-           - ID: `1440933547`
+        1. **Fizheuer Zieheuer**
+           Artist: Villalobos
+           Album: Alcachofa
+           Duration: 11:32
+           [Preview in Apple Music →](https://music.apple.com/...)
+           Catalog ID: `abc123`
         
-        2. **Home** by Ólafur Arnalds
-           - Album: re:member
-           - Duration: 4:47
-           - [Preview →](https://music.apple.com/...)
+        2. **Dexter**
+           Artist: Ricardo Villalobos
+           Duration: 9:47
+           [Preview →](https://music.apple.com/...)
+           Catalog ID: `def456`
         
-        📋 NEXT STEPS:
-        1. Click "Preview →" links to listen
-        2. Add favorites to your library
-        3. Use playlist_add_tracks to create playlists
+        These are perfect for deep focus - repetitive grooves, minimal vocals,
+        hypnotic patterns. Preview them and let me know which ones to add!
 ```
 
-**Discover albums:**
+**Find a specific track:**
 ```
-You: "Recommend new ambient albums"
+You: "Find 'Cumbia del Mar' by Nicola Cruz in Apple Music"
 
-Claude: 🎵 DISCOVERY MODE - ALBUM RECOMMENDATIONS
+Claude: [Calls discover_search_catalog("Nicola Cruz Cumbia del Mar")]
         
-        Based on: ambient
-        Found 10 album(s):
+        🎵 APPLE MUSIC CATALOG SEARCH
+        ========================================
         
-        1. **Immunity** by Jon Hopkins
-           - Released: 2013-06-04
-           - Genres: Electronic, Ambient
-           - [Preview →](https://music.apple.com/...)
+        Query: "Nicola Cruz Cumbia del Mar"
+        Found: 1 result
         
-        2. **Crush** by Floating Points
-           - Released: 2019-10-18
-           - [Preview →](https://music.apple.com/...)
+        1. **Cumbia del Mar**
+           Artist: Nicola Cruz
+           Album: Prender el Alma
+           Duration: 5:23
+           Released: 2015-11-06
+           [Preview in Apple Music →](https://music.apple.com/us/album/...)
+           Catalog ID: `1234567890`
+        
+        Found it! Preview the track and add it to your library if you'd like.
 ```
 
 ---
 
-### Hybrid Playlists (Library + Discovery)
+### Hybrid Workflows (Library + Discovery)
 
-**Extend existing playlist with new tracks:**
+**Extend existing playlist with new recommendations:**
 ```
-You: "Take my 'Focus' playlist and suggest 10 new tracks that would fit"
+You: "Look at my 'Moody' playlist and recommend a few extra tracks that would fit"
 
-Claude: [Analyzes your Focus playlist]
-        I see mostly ambient/electronic tracks by Tycho, Jon Hopkins, The xx.
+Claude: [Calls playlist_get_tracks to see what's in "Moody"]
         
-        🎵 RECOMMENDATIONS:
+        Your "Moody" playlist has tracks by:
+        - The xx, FKA twigs, James Blake, Bon Iver, Portishead
         
-        1. **Neon Pattern Drum** by Nils Frahm
-           - [Preview →](https://music.apple.com/...)
+        I can see this is melancholic, downtempo, atmospheric music.
+        Here are some tracks that would fit perfectly:
         
-        2. **Embers** by Kiasmos
-           - [Preview →](https://music.apple.com/...)
+        1. "Open Eye Signal" - Jon Hopkins (hypnotic, emotional electronic)
+        2. "Holocene" - Volcano Choir (ambient, layered vocals)
+        3. "Blue" - Joni Mitchell (classic melancholic folk)
+        4. "Motion Picture Soundtrack" - Radiohead (haunting, sparse)
+        5. "Re: Stacks" - Bon Iver (intimate, acoustic)
         
-        📋 HOW TO ADD TO YOUR PLAYLIST:
-        1. Preview the tracks above
-        2. Manually add favorites to your library in Apple Music
-        3. Tell me which ones you added, and I'll add them to "Focus"
+        Let me search Apple Music for these...
+        
+        [Searches catalog for each track]
+        
+        🎵 FOUND IN APPLE MUSIC:
+        [Shows preview links and catalog IDs]
+        
+        Preview these and add your favorites to your library,
+        then I can add them to your "Moody" playlist!
 
-You: "I added the first 5 tracks. Add them to my Focus playlist."
+You: "I added tracks 1, 2, and 4. Add them to the playlist."
 
-Claude: Added to "Focus":
-        ✓ Neon Pattern Drum - Nils Frahm
-        ✓ Embers - Kiasmos
-        ✓ Swim - Caribou
-        ✓ By Your Side - Sonder
-        ✓ Glue - Bicep
+Claude: [Calls library_search to find the tracks you added]
+        [Calls playlist_add_tracks]
         
-        Your "Focus" playlist now has 88 tracks!
+        ✓ Added to "Moody":
+        - Open Eye Signal - Jon Hopkins
+        - Holocene - Volcano Choir
+        - Motion Picture Soundtrack - Radiohead
+        
+        Your "Moody" playlist now has 23 tracks!
 ```
 
-**Create discovery playlist from scratch:**
+**Create new playlist from library + recommendations:**
 ```
-You: "Build me a late-night ambient playlist"
+You: "Create a world music playlist for cooking - use tracks from my library
+      and recommend some new ones"
 
-Claude: 🎵 DISCOVERY MODE - PLAYLIST CONCEPT
-        ========================================
+Claude: [Calls library_search("world")]
         
-        Theme: "late night ambient"
+        Found in your library:
+        - Cumbia del Mar - Nicola Cruz
+        - Khaled - C'est La Vie
+        - Buena Vista Social Club tracks
+        - Ali Farka Touré - Savane
         
-        ## FROM YOUR LIBRARY (5 tracks):
-        1. Dayvan Cowboy - Boards of Canada
-        2. Awake - Tycho
-        3. Intro - The xx
-        4. Breathe - Floating Points
-        5. Holocene - Bon Iver
+        Perfect! Here are some recommendations that fit this vibe:
         
-        ## NEW RECOMMENDATIONS (15 tracks):
+        1. "Río" - Aterciopelados (Colombian rock/folk fusion)
+        2. "Kaira" - Toumani Diabaté (Malian kora music)
+        3. "Lhasa de Sela" - La Llorona (Folk with Latin influences)
+        4. "Desert Blues" - Tinariwen (Tuareg rock)
         
-        1. **re: stacks** by Bon Iver
-           - [Preview →](https://music.apple.com/...)
+        [Searches Apple Music catalog]
         
-        2. **Nuvole Bianche** by Ludovico Einaudi
-           - [Preview →](https://music.apple.com/...)
+        Found 4 tracks - preview them and add your favorites!
         
-        📋 HOW TO CREATE THIS PLAYLIST:
-        1. Preview the tracks using links above
-        2. Add favorites to your library in Apple Music
-        3. Create playlist: "Create a playlist called 'Late Night Ambient'"
-        4. Add tracks: "Add [track names] to Late Night Ambient"
-
-You: "Create a playlist called 'Late Night Ambient'"
-Claude: Created playlist "Late Night Ambient"
-
-You: "Add Dayvan Cowboy, Awake, Intro, and the Ludovico track I just added"
-Claude: Added 4 tracks to "Late Night Ambient" ✓
+        Once you've added them to your library, I'll create the
+        "World Music Cooking" playlist with your library tracks
+        plus the new ones you selected.
 ```
 
 ---
+
+### Tips for Best Results
+
+**1. Build Claude's understanding of your taste**
+
+Tell Claude about your music preferences:
+- "I love microhouse artists like Villalobos and Zip"
+- "I'm into atmospheric downtempo - Bonobo, Emancipator, that vibe"
+- "Show me melodic techno with organic sounds, no aggressive beats"
+
+**2. Be specific about context**
+
+- "Recommend workout music" → "High-energy techno for running, 140+ BPM"
+- "Chill music" → "Downtempo electronic for Sunday morning coffee"
+- "Focus music" → "Minimal ambient with no vocals for deep coding sessions"
+
+**3. Reference artists/tracks as anchors**
+
+- "Artists similar to Floating Points but more ambient"
+- "Tracks like 'Cumbia del Mar' - organic, percussive, world music vibes"
+- "Albums like Tycho's 'Dive' - warm, nostalgic synths"
+
+**4. Iterate and refine**
+
+- "That's too upbeat, give me something more subdued"
+- "Perfect, but add more organic instrumentation"
+- "More like track 2, less like track 5"
 
 ### Tips & Best Practices
 

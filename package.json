@@ -10,6 +10,7 @@
   "files": [
     "dist/",
     "bin/",
+    "examples/",
     "README.md",
     "LICENSE",
     "manifest.json"

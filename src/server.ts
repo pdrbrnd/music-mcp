@@ -44,22 +44,10 @@ import {
 import {
   discoverSearchCatalogTool,
   discoverCheckLibraryStatusTool,
-  discoverTracksTool,
-  discoverAlbumsTool,
-  discoverArtistsTool,
-  discoverGeneratePlaylistTool,
   handleDiscoverSearchCatalog,
   handleDiscoverCheckLibraryStatus,
-  handleDiscoverTracks,
-  handleDiscoverAlbums,
-  handleDiscoverArtists,
-  handleDiscoverGeneratePlaylist,
   DiscoverSearchCatalogInput,
   DiscoverCheckLibraryStatusInput,
-  DiscoverTracksInput,
-  DiscoverAlbumsInput,
-  DiscoverArtistsInput,
-  DiscoverGeneratePlaylistInput,
 } from "./tools/discovery.js";
 
 export async function registerTools(server: Server): Promise<void> {
@@ -83,10 +71,6 @@ export async function registerTools(server: Server): Promise<void> {
         // 🎵 Discovery
         discoverSearchCatalogTool,
         discoverCheckLibraryStatusTool,
-        discoverTracksTool,
-        discoverAlbumsTool,
-        discoverArtistsTool,
-        discoverGeneratePlaylistTool,
       ],
     };
   });
@@ -250,62 +234,6 @@ export async function registerTools(server: Server): Promise<void> {
         case "discover_check_library_status": {
           const result = await handleDiscoverCheckLibraryStatus(
             args as DiscoverCheckLibraryStatusInput,
-          );
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-        }
-
-        case "discover_tracks": {
-          const result = await handleDiscoverTracks(
-            args as DiscoverTracksInput,
-          );
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-        }
-
-        case "discover_albums": {
-          const result = await handleDiscoverAlbums(
-            args as DiscoverAlbumsInput,
-          );
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-        }
-
-        case "discover_artists": {
-          const result = await handleDiscoverArtists(
-            args as DiscoverArtistsInput,
-          );
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(result, null, 2),
-              },
-            ],
-          };
-        }
-
-        case "discover_generate_playlist": {
-          const result = await handleDiscoverGeneratePlaylist(
-            args as DiscoverGeneratePlaylistInput,
           );
           return {
             content: [

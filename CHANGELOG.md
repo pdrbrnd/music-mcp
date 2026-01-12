@@ -5,11 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2024-01-12
+## [2.0.0] - 2024-01-13
 
-### 🎉 Complete Rewrite - Intentional Music Discovery
+### 🎯 Complete Rewrite - Claude-Driven Music Discovery
 
-This is a complete architectural rewrite focused on **library management** and **conscious music discovery**. The previous playback control features have been removed to focus on what MCPs do best: data access and curation.
+This is a complete architectural rewrite focused on **Claude generating recommendations** and using these tools to search Apple Music's catalog and manage your library.
+
+**Core Philosophy:** Claude is the recommendation engine, not Apple Music. These tools are a bridge to Apple's catalog for tracks Claude recommends based on understanding your taste.
 
 ### Added
 
