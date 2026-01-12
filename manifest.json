@@ -1,10 +1,10 @@
 {
   "mcpb_version": "0.1",
   "name": "@pdrbrnd/music-mcp",
-  "display_name": "Music MCP for Apple Music",
-  "version": "1.2.0",
-  "description": "MCP server for controlling Apple Music on macOS with full catalog search - play tracks, control playback, manage playlists, discover new music",
-  "long_description": "A comprehensive MCP server that provides full control over Apple Music on macOS. Features include playing specific tracks, controlling playback (play/pause/next/previous), searching your music library and the full Apple Music catalog (100M+ songs), managing playlists with catalog integration, music discovery, and getting current track information.",
+  "display_name": "Music MCP - Library & Discovery",
+  "version": "2.0.0",
+  "description": "MCP server for Apple Music library management and intentional music discovery on macOS",
+  "long_description": "A focused MCP server for managing your Apple Music library and discovering new music consciously. Browse and search your library, create and manage playlists, and discover new music from Apple Music's 100M+ track catalog with preview links. Discovery features return recommendations only - you decide what gets added to your library. No playback control - this MCP focuses on what MCPs do best: data access and curation.",
   "author": {
     "name": "Pedro Brandão",
     "email": "pedro@significa.co"
@@ -20,50 +20,82 @@
   },
   "tools": [
     {
-      "name": "execute_music_command",
-      "description": "Control music playback (play, pause, next, previous, play specific tracks)"
+      "name": "library_get_current_track",
+      "description": "📚 Get information about the currently playing track"
     },
     {
-      "name": "get_music_info",
-      "description": "Get current track info, playback status, and library statistics"
+      "name": "library_search",
+      "description": "📚 Search your music library for tracks, albums, or artists"
     },
     {
-      "name": "search_music",
-      "description": "Search your music library by artist, album, or track"
+      "name": "library_browse",
+      "description": "📚 Browse your library by type (tracks, albums, artists, playlists)"
     },
     {
-      "name": "manage_playlist",
-      "description": "List playlists, get tracks, and manage playlist contents with catalog search support"
+      "name": "playlist_create",
+      "description": "📚 Create a new empty playlist"
     },
     {
-      "name": "queue_music",
-      "description": "Enhanced queue management - view queue, add tracks, play queue, and control playback order"
+      "name": "playlist_add_tracks",
+      "description": "📚 Add tracks from your library to a playlist"
     },
     {
-      "name": "search_apple_music_catalog",
-      "description": "Search the full Apple Music catalog (100M+ songs) for music discovery"
+      "name": "playlist_remove_tracks",
+      "description": "📚 Remove tracks from a playlist"
     },
     {
-      "name": "add_catalog_track_to_library",
-      "description": "Add tracks from Apple Music catalog to your library"
+      "name": "playlist_rename",
+      "description": "📚 Rename an existing playlist"
+    },
+    {
+      "name": "playlist_delete",
+      "description": "📚 Delete a playlist"
+    },
+    {
+      "name": "playlist_get_tracks",
+      "description": "📚 Get all tracks in a playlist"
+    },
+    {
+      "name": "discover_search_catalog",
+      "description": "🎵 Search Apple Music's 100M+ track catalog (returns preview links only)"
+    },
+    {
+      "name": "discover_check_library_status",
+      "description": "🎵 Check which catalog tracks are already in your library"
+    },
+    {
+      "name": "discover_tracks",
+      "description": "🎵 Get personalized track recommendations based on artist, album, track, or genre"
+    },
+    {
+      "name": "discover_albums",
+      "description": "🎵 Get album recommendations based on artist or genre"
+    },
+    {
+      "name": "discover_artists",
+      "description": "🎵 Get similar artist recommendations"
+    },
+    {
+      "name": "discover_generate_playlist",
+      "description": "🎵 Generate a playlist concept with your library tracks + new recommendations"
     }
   ],
   "keywords": [
     "music",
-    "apple music",
-    "audio",
-    "playback",
+    "apple-music",
+    "library-management",
     "playlist",
+    "music-discovery",
+    "catalog-search",
     "macos",
-    "catalog",
-    "musickit",
-    "discovery"
+    "intentional-listening",
+    "curation"
   ],
   "license": "MIT",
   "compatibility": {
     "platforms": ["darwin"],
     "runtimes": {
-      "node": ">=16.0.0"
+      "node": ">=18.0.0"
     }
   },
   "repository": {

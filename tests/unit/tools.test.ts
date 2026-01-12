@@ -1,58 +1,205 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { handleInfoCommand } from '../../src/tools/info.js';
-import { handleExecuteMusicCommand } from '../../src/tools/music-control.js';
+import { describe, it, expect, vi } from "vitest";
+import {
+  handleLibraryGetCurrentTrack,
+  handleLibrarySearch,
+  handleLibraryBrowse,
+} from "../../src/tools/library.js";
+import {
+  handlePlaylistCreate,
+  handlePlaylistAddTracks,
+} from "../../src/tools/playlists.js";
+import { handleDiscoverSearchCatalog } from "../../src/tools/discovery.js";
 
-describe('Info Tool', () => {
-  it('should return version information', async () => {
-    const result = await handleInfoCommand({ command: 'info' });
-    
-    expect(result.version).toMatch(/^\d+\.\d+\.\d+$/);
-    expect(typeof result.musicAppAvailable).toBe('boolean');
-    expect(typeof result.appleScriptAvailable).toBe('boolean');
-    expect(typeof result.loggerPath).toBe('string');
-    expect(['ok', 'error']).toContain(result.loggerStatus);
-    expect(Array.isArray(result.configurationIssues)).toBe(true);
+// Mock child_process execSync
+vi.mock("child_process", () => ({
+  execSync: vi.fn((cmd: string) => {
+    // Mock responses based on command
+    if (cmd.includes("get-current-track")) {
+      return JSON.stringify({
+        title: "Test Track",
+        artist: "Test Artist",
+        album: "Test Album",
+        duration: 240,
+        position: 60,
+        state: "playing",
+      });
+    }
+    if (cmd.includes("search-tracks")) {
+      return JSON.stringify([
+        { title: "Track 1", artist: "Artist 1", album: "Album 1" },
+        { title: "Track 2", artist: "Artist 2", album: "Album 2" },
+      ]);
+    }
+    if (cmd.includes("get-albums")) {
+      return JSON.stringify([
+        { album: "Album 1", artist: "Artist 1" },
+        { album: "Album 2", artist: "Artist 2" },
+      ]);
+    }
+    if (cmd.includes("get-playlists")) {
+      return JSON.stringify([
+        { name: "Playlist 1", trackCount: 10 },
+        { name: "Playlist 2", trackCount: 20 },
+      ]);
+    }
+    if (cmd.includes("create-playlist")) {
+      return "Playlist created successfully";
+    }
+    return "";
+  }),
+}));
+
+describe("Library Tools", () => {
+  describe("library_get_current_track", () => {
+    it("should return current track information", async () => {
+      const result = await handleLibraryGetCurrentTrack({});
+
+      expect(result.success).toBe(true);
+      expect(result.data).toBeDefined();
+      expect(result.data.title).toBe("Test Track");
+      expect(result.data.artist).toBe("Test Artist");
+    });
+  });
+
+  describe("library_search", () => {
+    it("should require a query", async () => {
+      const result = await handleLibrarySearch({ query: "" });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Empty query");
+    });
+
+    it("should search for tracks", async () => {
+      const result = await handleLibrarySearch({
+        query: "test",
+        type: "track",
+      });
+
+      expect(result.success).toBe(true);
+      expect(Array.isArray(result.data)).toBe(true);
+    });
+
+    it("should respect limit parameter", async () => {
+      const result = await handleLibrarySearch({
+        query: "test",
+        limit: 1,
+      });
+
+      expect(result.success).toBe(true);
+      if (Array.isArray(result.data)) {
+        expect(result.data.length).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it("should handle different search types", async () => {
+      const types = ["track", "album", "artist", "all"] as const;
+
+      for (const type of types) {
+        const result = await handleLibrarySearch({
+          query: "test",
+          type,
+        });
+        expect(result.success).toBe(true);
+      }
+    });
+  });
+
+  describe("library_browse", () => {
+    it("should browse tracks", async () => {
+      const result = await handleLibraryBrowse({ type: "tracks" });
+      expect(result.success).toBe(true);
+    });
+
+    it("should browse albums", async () => {
+      const result = await handleLibraryBrowse({ type: "albums" });
+      expect(result.success).toBe(true);
+    });
+
+    it("should browse playlists", async () => {
+      const result = await handleLibraryBrowse({ type: "playlists" });
+      expect(result.success).toBe(true);
+    });
+
+    it("should extract unique artists", async () => {
+      const result = await handleLibraryBrowse({ type: "artists" });
+      expect(result.success).toBe(true);
+      if (Array.isArray(result.data)) {
+        // Check that artists are unique
+        const artistNames = result.data.map((a: any) => a.artist);
+        const uniqueArtists = new Set(artistNames);
+        expect(artistNames.length).toBe(uniqueArtists.size);
+      }
+    });
   });
 });
 
-describe('Music Control Tool', () => {
-  it('should validate volume range', async () => {
-    const result = await handleExecuteMusicCommand({ 
-      command: 'play', 
-      volume: 150 
+describe("Playlist Tools", () => {
+  describe("playlist_create", () => {
+    it("should create a playlist", async () => {
+      const result = await handlePlaylistCreate({ name: "Test Playlist" });
+
+      expect(result.success).toBe(true);
+      expect(result.data.playlist_name).toBe("Test Playlist");
     });
-    
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('Invalid volume range');
   });
 
-  it('should validate rating range', async () => {
-    const result = await handleExecuteMusicCommand({ 
-      command: 'play', 
-      rating: 10 
+  describe("playlist_add_tracks", () => {
+    it("should add tracks to playlist", async () => {
+      const result = await handlePlaylistAddTracks({
+        playlist_name: "Test Playlist",
+        track_search_terms: ["Track 1", "Track 2"],
+      });
+
+      expect(result.success).toBeDefined();
+      expect(result.data).toBeDefined();
+      expect(result.data.playlist_name).toBe("Test Playlist");
     });
-    
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('Invalid rating range');
+
+    it("should handle empty track list", async () => {
+      const result = await handlePlaylistAddTracks({
+        playlist_name: "Test Playlist",
+        track_search_terms: [],
+      });
+
+      expect(result.data.added).toBe(0);
+    });
+  });
+});
+
+describe("Discovery Tools", () => {
+  describe("discover_search_catalog", () => {
+    it("should return not available when MusicKit not configured", async () => {
+      const result = await handleDiscoverSearchCatalog({
+        query: "test",
+      });
+
+      expect(result.catalogAvailable).toBe(false);
+      expect(result.message).toContain("DISCOVERY MODE: Not Available");
+    });
+  });
+});
+
+describe("Output Format Validation", () => {
+  it("library tools should return proper structure", async () => {
+    const result = await handleLibraryGetCurrentTrack({});
+
+    expect(result).toHaveProperty("success");
+    expect(result).toHaveProperty("message");
+    expect(typeof result.success).toBe("boolean");
+    expect(typeof result.message).toBe("string");
   });
 
-  it('should accept valid volume', async () => {
-    const result = await handleExecuteMusicCommand({ 
-      command: 'play', 
-      volume: 50 
-    });
-    
-    // Result depends on Music app availability, but should not fail validation
-    expect(result.error).not.toBe('Invalid volume range');
+  it("discovery tools should include catalogAvailable flag", async () => {
+    const result = await handleDiscoverSearchCatalog({ query: "test" });
+
+    expect(result).toHaveProperty("catalogAvailable");
+    expect(typeof result.catalogAvailable).toBe("boolean");
   });
 
-  it('should accept valid rating', async () => {
-    const result = await handleExecuteMusicCommand({ 
-      command: 'play', 
-      rating: 3 
-    });
-    
-    // Result depends on Music app availability, but should not fail validation
-    expect(result.error).not.toBe('Invalid rating range');
+  it("discovery tools should return markdown formatted messages", async () => {
+    const result = await handleDiscoverSearchCatalog({ query: "test" });
+
+    // Even when not available, message should be formatted
+    expect(result.message).toContain("🎵 DISCOVERY MODE");
   });
-}); 
+});

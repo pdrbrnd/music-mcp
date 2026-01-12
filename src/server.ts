@@ -4,60 +4,89 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { logger } from "./logger.js";
-import { infoTool, handleInfoCommand } from "./tools/info.js";
-import {
-  executeMusicCommandTool,
-  handleExecuteMusicCommand,
-  ExecuteMusicCommandInput,
-} from "./tools/music-control.js";
-import {
-  getMusicInfoTool,
-  searchMusicTool,
-  handleGetMusicInfo,
-  handleSearchMusic,
-  GetMusicInfoInput,
-  SearchMusicInput,
-} from "./tools/library-management.js";
-import {
-  managePlaylistTool,
-  handleManagePlaylist,
-  ManagePlaylistInput,
-} from "./tools/playlist-management.js";
-import {
-  queueMusicTool,
-  handleQueueMusic,
-  QueueMusicInput,
-} from "./tools/queue-management.js";
-import {
-  catalogSearchTool,
-  addCatalogTrackTool,
-  handleCatalogSearch,
-  handleAddCatalogTrack,
-  CatalogSearchInput,
-  AddCatalogTrackInput,
-} from "./tools/catalog-search.js";
 
+// Library tools
 import {
-  batchCatalogSearchTool,
-  handleBatchCatalogSearch,
-  BatchCatalogSearchInput,
-} from "./tools/create-catalog-playlist.js";
+  libraryGetCurrentTrackTool,
+  librarySearchTool,
+  libraryBrowseTool,
+  handleLibraryGetCurrentTrack,
+  handleLibrarySearch,
+  handleLibraryBrowse,
+  LibraryGetCurrentTrackInput,
+  LibrarySearchInput,
+  LibraryBrowseInput,
+} from "./tools/library.js";
+
+// Playlist tools
+import {
+  playlistCreateTool,
+  playlistAddTracksTool,
+  playlistRemoveTracksTool,
+  playlistRenameTool,
+  playlistDeleteTool,
+  playlistGetTracksTool,
+  handlePlaylistCreate,
+  handlePlaylistAddTracks,
+  handlePlaylistRemoveTracks,
+  handlePlaylistRename,
+  handlePlaylistDelete,
+  handlePlaylistGetTracks,
+  PlaylistCreateInput,
+  PlaylistAddTracksInput,
+  PlaylistRemoveTracksInput,
+  PlaylistRenameInput,
+  PlaylistDeleteInput,
+  PlaylistGetTracksInput,
+} from "./tools/playlists.js";
+
+// Discovery tools
+import {
+  discoverSearchCatalogTool,
+  discoverCheckLibraryStatusTool,
+  discoverTracksTool,
+  discoverAlbumsTool,
+  discoverArtistsTool,
+  discoverGeneratePlaylistTool,
+  handleDiscoverSearchCatalog,
+  handleDiscoverCheckLibraryStatus,
+  handleDiscoverTracks,
+  handleDiscoverAlbums,
+  handleDiscoverArtists,
+  handleDiscoverGeneratePlaylist,
+  DiscoverSearchCatalogInput,
+  DiscoverCheckLibraryStatusInput,
+  DiscoverTracksInput,
+  DiscoverAlbumsInput,
+  DiscoverArtistsInput,
+  DiscoverGeneratePlaylistInput,
+} from "./tools/discovery.js";
 
 export async function registerTools(server: Server): Promise<void> {
   // Register tool definitions
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
       tools: [
-        infoTool,
-        executeMusicCommandTool,
-        getMusicInfoTool,
-        searchMusicTool,
-        managePlaylistTool,
-        queueMusicTool,
-        catalogSearchTool,
-        addCatalogTrackTool,
+        // 📚 Your Library
+        libraryGetCurrentTrackTool,
+        librarySearchTool,
+        libraryBrowseTool,
 
-        batchCatalogSearchTool,
+        // 📚 Your Playlists
+        playlistCreateTool,
+        playlistAddTracksTool,
+        playlistRemoveTracksTool,
+        playlistRenameTool,
+        playlistDeleteTool,
+        playlistGetTracksTool,
+
+        // 🎵 Discovery
+        discoverSearchCatalogTool,
+        discoverCheckLibraryStatusTool,
+        discoverTracksTool,
+        discoverAlbumsTool,
+        discoverArtistsTool,
+        discoverGeneratePlaylistTool,
       ],
     };
   });
@@ -70,115 +99,213 @@ export async function registerTools(server: Server): Promise<void> {
 
     try {
       switch (name) {
-        case "info": {
-          const infoResult = await handleInfoCommand();
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(infoResult, null, 2),
-              },
-            ],
-          };
-        }
+        // ====================================================================
+        // 📚 Library Tools
+        // ====================================================================
 
-        case "execute_music_command": {
-          const commandResult = await handleExecuteMusicCommand(
-            args as ExecuteMusicCommandInput,
+        case "library_get_current_track": {
+          const result = await handleLibraryGetCurrentTrack(
+            args as LibraryGetCurrentTrackInput,
           );
           return {
             content: [
               {
                 type: "text",
-                text: JSON.stringify(commandResult, null, 2),
+                text: JSON.stringify(result, null, 2),
               },
             ],
           };
         }
 
-        case "get_music_info": {
-          const infoData = await handleGetMusicInfo(args as GetMusicInfoInput);
+        case "library_search": {
+          const result = await handleLibrarySearch(args as LibrarySearchInput);
           return {
             content: [
               {
                 type: "text",
-                text: JSON.stringify(infoData, null, 2),
+                text: JSON.stringify(result, null, 2),
               },
             ],
           };
         }
 
-        case "search_music": {
-          const searchResult = await handleSearchMusic(
-            args as SearchMusicInput,
+        case "library_browse": {
+          const result = await handleLibraryBrowse(args as LibraryBrowseInput);
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        // ====================================================================
+        // 📚 Playlist Tools
+        // ====================================================================
+
+        case "playlist_create": {
+          const result = await handlePlaylistCreate(
+            args as PlaylistCreateInput,
           );
           return {
             content: [
               {
                 type: "text",
-                text: JSON.stringify(searchResult, null, 2),
+                text: JSON.stringify(result, null, 2),
               },
             ],
           };
         }
 
-        case "manage_playlist": {
-          const playlistResult = await handleManagePlaylist(
-            args as ManagePlaylistInput,
+        case "playlist_add_tracks": {
+          const result = await handlePlaylistAddTracks(
+            args as PlaylistAddTracksInput,
           );
           return {
             content: [
               {
                 type: "text",
-                text: JSON.stringify(playlistResult, null, 2),
+                text: JSON.stringify(result, null, 2),
               },
             ],
           };
         }
 
-        case "queue_music": {
-          const queueResult = await handleQueueMusic(args as QueueMusicInput);
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify(queueResult, null, 2),
-              },
-            ],
-          };
-        }
-
-        case "search_apple_music_catalog": {
-          const catalogResult = await handleCatalogSearch(
-            args as CatalogSearchInput,
+        case "playlist_remove_tracks": {
+          const result = await handlePlaylistRemoveTracks(
+            args as PlaylistRemoveTracksInput,
           );
           return {
             content: [
               {
                 type: "text",
-                text: JSON.stringify(catalogResult, null, 2),
+                text: JSON.stringify(result, null, 2),
               },
             ],
           };
         }
 
-        case "add_catalog_track_to_library": {
-          const addResult = await handleAddCatalogTrack(
-            args as AddCatalogTrackInput,
+        case "playlist_rename": {
+          const result = await handlePlaylistRename(
+            args as PlaylistRenameInput,
           );
           return {
             content: [
               {
                 type: "text",
-                text: JSON.stringify(addResult, null, 2),
+                text: JSON.stringify(result, null, 2),
               },
             ],
           };
         }
 
-        case "batch_catalog_search": {
-          const result = await handleBatchCatalogSearch(
-            args as BatchCatalogSearchInput,
+        case "playlist_delete": {
+          const result = await handlePlaylistDelete(
+            args as PlaylistDeleteInput,
+          );
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        case "playlist_get_tracks": {
+          const result = await handlePlaylistGetTracks(
+            args as PlaylistGetTracksInput,
+          );
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        // ====================================================================
+        // 🎵 Discovery Tools
+        // ====================================================================
+
+        case "discover_search_catalog": {
+          const result = await handleDiscoverSearchCatalog(
+            args as DiscoverSearchCatalogInput,
+          );
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        case "discover_check_library_status": {
+          const result = await handleDiscoverCheckLibraryStatus(
+            args as DiscoverCheckLibraryStatusInput,
+          );
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        case "discover_tracks": {
+          const result = await handleDiscoverTracks(
+            args as DiscoverTracksInput,
+          );
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        case "discover_albums": {
+          const result = await handleDiscoverAlbums(
+            args as DiscoverAlbumsInput,
+          );
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        case "discover_artists": {
+          const result = await handleDiscoverArtists(
+            args as DiscoverArtistsInput,
+          );
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(result, null, 2),
+              },
+            ],
+          };
+        }
+
+        case "discover_generate_playlist": {
+          const result = await handleDiscoverGeneratePlaylist(
+            args as DiscoverGeneratePlaylistInput,
           );
           return {
             content: [

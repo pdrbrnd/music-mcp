@@ -5,76 +5,135 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - 2025-01-XX
+## [2.0.0] - 2024-01-12
+
+### 🎉 Complete Rewrite - Intentional Music Discovery
+
+This is a complete architectural rewrite focused on **library management** and **conscious music discovery**. The previous playback control features have been removed to focus on what MCPs do best: data access and curation.
 
 ### Added
-- **Apple Music Catalog Search**: Full integration with Apple Music API (MusicKit) for searching 100M+ songs
-- **Music Discovery**: New tools for discovering and adding music not in your library
-- **New Tool: `search_apple_music_catalog`**: Search the full Apple Music catalog by track, artist, or album
-- **New Tool: `add_catalog_track_to_library`**: Add catalog tracks to your library (requires user token)
-- **Enhanced Playlist Management**: Added `add_catalog_track` action to `manage_playlist` tool
-- **Automatic Catalog Fallback**: `add_track` can now automatically search catalog if track not found in library (with `useCatalogSearch: true`)
-- **MusicKit Service**: New `musickit-client.ts` service for Apple Music API integration
-- **Comprehensive Setup Guide**: Added `MUSICKIT_SETUP.md` with detailed instructions for MusicKit configuration
-- **Enhanced Info Tool**: Added catalog configuration status to diagnostic output
-- **Improved AppleScript**: New `add-to-playlist-enhanced.applescript` with multiple search strategies
+
+#### 📚 Library Tools (No API Keys Required)
+- `library_get_current_track` - Get currently playing track information
+- `library_search` - Search your library for tracks, albums, or artists
+- `library_browse` - Browse your library by type (tracks, albums, artists, playlists)
+
+#### 📚 Playlist Tools (No API Keys Required)
+- `playlist_create` - Create new empty playlists
+- `playlist_add_tracks` - Add multiple tracks from your library to a playlist
+- `playlist_remove_tracks` - Remove multiple tracks from a playlist
+- `playlist_rename` - Rename existing playlists
+- `playlist_delete` - Delete playlists
+- `playlist_get_tracks` - Get all tracks in a playlist
+
+#### 🎵 Discovery Tools (Requires Apple Music API)
+- `discover_search_catalog` - Search Apple Music's 100M+ track catalog
+- `discover_check_library_status` - Check which catalog tracks are in your library
+- `discover_tracks` - Get personalized track recommendations
+- `discover_albums` - Get album recommendations
+- `discover_artists` - Get similar artist recommendations
+- `discover_generate_playlist` - Generate playlist concepts with your library + new tracks
+
+#### Philosophy: Intentional Music Discovery
+- Discovery tools return **recommendations with preview links only**
+- No automatic library modifications - every track addition is a conscious choice
+- Formatted markdown outputs with Apple Music deep links for previewing
+- Clear "NEXT STEPS" guidance for turning recommendations into playlists
+- Encourages engagement with music, artist context, and intentional curation
 
 ### Changed
-- **Migrated to pnpm**: Switched from npm to pnpm for package management
-- **Updated Packaging**: Changed from `@anthropic-ai/dxt` to `@anthropic-ai/mcpb` for MCP bundle creation
-- **Build Scripts**: Updated all scripts to use pnpm instead of npm
-- **Configuration**: Added new environment variables for Apple Music API (`APPLE_MUSIC_DEVELOPER_TOKEN`, `APPLE_MUSIC_USER_TOKEN`, `APPLE_MUSIC_STOREFRONT`)
-- **Manifest**: Updated from `dxt_version` to `mcpb_version` for modern MCP packaging
-- **Documentation**: Comprehensive README updates with catalog search usage examples and setup instructions
 
-### Technical Details
-- Added MusicKit API client with JWT authentication support
-- Implemented catalog search with automatic library fallback
-- Enhanced error handling for catalog operations with helpful suggestions
-- Added support for ES256 JWT tokens (required by Apple Music API)
-- Improved search strategies with multiple fallback attempts
-- Added sync delay handling for library additions
+- **Tool naming convention**: All tools now use descriptive prefixes (`library_*`, `playlist_*`, `discover_*`)
+- **Output format**: Discovery tools return rich markdown-formatted recommendations
+- **Error handling**: Clearer error messages and guidance for next steps
+- **Documentation**: Complete README rewrite with usage examples and workflow guidance
 
-### Credits
-- Forked from [pedrocid/music-mcp](https://github.com/pedrocid/music-mcp) by Pedro Cid
-- Main enhancement: Apple Music catalog search for music discovery beyond local library
+### Removed
 
-## [1.0.0] - 2024-12-19
+#### Playback Control (Intentionally Removed)
+- ❌ `execute_music_command` - Play, pause, skip, volume control
+- ❌ All playback-related AppleScript files
+- **Why?** Playback control via MCP is gimmicky. MCPs excel at data access and curation, not UI control.
 
-### Added
-- Initial release of Music MCP server
-- Playback control tools (play, pause, next, previous, volume)
-- Current track information retrieval
-- Library management and search functionality
-- Playlist creation and management
-- Queue management capabilities
-- Comprehensive AppleScript integration
-- Robust error handling and logging with Pino
-- Environment variable configuration
-- Comprehensive test suite with Vitest
-- Release preparation script with automated checks
-- TypeScript support with full type definitions
-- MCP SDK integration for Claude Desktop compatibility
+#### Queue Management (Intentionally Removed)
+- ❌ `queue_music` - View queue, add to queue, play queue
+- ❌ All queue-related AppleScript files
+- **Why?** Queue state is ephemeral. Focus shifted to durable playlist management.
 
-### Features
-- **Core Tools**: `info`, `execute_music_command`, `get_music_info`, `search_music`, `manage_playlist`
-- **AppleScript Integration**: Full Apple Music app control via AppleScript
-- **Configuration**: Environment-based configuration with sensible defaults
-- **Logging**: Structured logging with file and console output options
-- **Testing**: Unit and integration tests for all components
-- **Documentation**: Comprehensive README and inline documentation
+#### Old Tools (Replaced with Better Alternatives)
+- ❌ `info` - Replaced by clear tool descriptions and error messages
+- ❌ `get_music_info` - Split into focused `library_*` tools
+- ❌ `search_music` - Replaced by `library_search` with clearer parameters
+- ❌ `manage_playlist` - Split into dedicated `playlist_*` tools for each action
+- ❌ `search_apple_music_catalog` - Renamed to `discover_search_catalog`
+- ❌ `batch_catalog_search` - Merged into `discover_*` tools
+- ❌ `add_catalog_track_to_library` - Removed (manual addition encouraged)
 
-### Technical Details
-- Node.js 18+ support
-- TypeScript compilation with CommonJS output
-- ESLint configuration for code quality
-- Vitest for testing framework
-- Pino for structured logging
-- Comprehensive error handling
-- Automated release preparation
+### Breaking Changes
 
-### Requirements
-- macOS (for Apple Music and AppleScript)
-- Node.js 18.0.0 or higher
-- Apple Music app
-- Automation permissions for terminal application 
+- 🚨 **Complete API rewrite** - All tool names and parameters have changed
+- 🚨 Tool responses now use consistent structure: `{ success, data, message, error? }`
+- 🚨 Discovery tools include `catalogAvailable` flag in responses
+- 🚨 Playlist operations now use arrays for batch track operations
+- 🚨 Removed all playback and queue management functionality
+
+### Migration Guide
+
+#### Old → New Tool Mapping
+
+**Playback Control** → ❌ Removed (use Music.app directly)
+```
+execute_music_command → Removed
+```
+
+**Library Info**
+```
+get_music_info(infoType: "current_track") → library_get_current_track()
+get_music_info(infoType: "library_stats") → library_browse(type: ...)
+```
+
+**Search**
+```
+search_music(query, searchType) → library_search(query, type)
+```
+
+**Playlists**
+```
+manage_playlist(action: "create") → playlist_create(name)
+manage_playlist(action: "list") → library_browse(type: "playlists")
+manage_playlist(action: "add_track") → playlist_add_tracks(playlist_name, track_search_terms)
+manage_playlist(action: "remove_track") → playlist_remove_tracks(playlist_name, track_search_terms)
+manage_playlist(action: "rename") → playlist_rename(current_name, new_name)
+manage_playlist(action: "delete") → playlist_delete(name)
+manage_playlist(action: "get_tracks") → playlist_get_tracks(name)
+```
+
+**Discovery**
+```
+search_apple_music_catalog(query) → discover_search_catalog(query)
+batch_catalog_search(tracks) → discover_tracks(seed_type, seed_value)
+```
+
+#### Updated Configuration
+
+No changes to environment variables, but discovery features now have clearer "not configured" messaging.
+
+### Technical Changes
+
+- Consolidated tool handlers into focused modules: `library.ts`, `playlists.ts`, `discovery.ts`
+- Removed 50%+ of codebase for better maintainability
+- Updated tests to match new tool structure
+- Improved TypeScript types for better IDE support
+- Cleaner server.ts with organized tool registration
+
+### Documentation
+
+- Complete README rewrite with clear feature sections
+- Added usage examples for common workflows
+- Documented the intentional discovery philosophy
+- Clear setup instructions for both library-only and discovery modes
+- Troubleshooting section with common issues
+
+---
+
+**Note**: Version 2.0.0 represents a complete philosophical and architectural shift. If you need playback control, use version 1.x or control the Music app directly.

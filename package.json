@@ -1,7 +1,7 @@
 {
   "name": "@pdrbrnd/music-mcp",
-  "version": "1.2.0",
-  "description": "MCP server for controlling Apple Music on macOS with full catalog search support",
+  "version": "2.0.0",
+  "description": "MCP server for Apple Music library management and intentional music discovery",
   "main": "dist/index.js",
   "bin": {
     "music-mcp": "dist/index.js",
@@ -33,8 +33,9 @@
     "music",
     "apple-music",
     "macos",
-    "automation",
-    "applescript"
+    "music-discovery",
+    "playlist-management",
+    "library-management"
   ],
   "author": "Pedro Brandão <pedro@significa.co>",
   "license": "MIT",
